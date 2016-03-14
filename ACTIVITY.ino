@@ -1,17 +1,29 @@
+// INSTRUCTIONS FOR EDITOR - THIS SECTION MUST BE COMPLETED
+// Fill out this header section BEFORE attempting to commit changes to GitHub
+// Title of File: ACTIVITY.ino
+// Name of Editor: Ashwin Sundar
+// Date of GitHub commit: March 14, 2016
+// What specific changes were made to this code, compared to the code currently up-to-date
+// on GitHub?: Cleaned up the code. Removed unneccessary variables. Rewrote any variables 
+// that had unclear names
+// 
+// Best coding practices
+// 1) When you create a new variable or function, make it obvious what the variable or
+// function does.
+// 2) Comment copiously. Created a new variable or function? Explain why. Explain what
+// function do. Feel free to link to sites that you referenced for an algorithm,
+// for example. 
+// 3) Please compile your code, run it on a device, and make sure it is functional BEFORE
+// pushing up to GitHub. 
 
-const int led = 13;
-int step_count = 0; 
+// Steps are integer values. I initialize step count at 0 when the sketch loads
+// for the first time. I currently do not have a way to save the step count in the
+// event that the device shuts off. 
+
+int stepCount = 0; 
 
 void setup() {
  
-// Initial commit to github of this activity.ino file. 
-// Ashwin
-// March 2 2016
-
-  Serial.begin(9600);
-  Serial.setTimeout(25);  //Set limit time to send data
-  //defined in setup
-
 }
 
 void loop() {
@@ -49,7 +61,7 @@ void loop() {
 
   if (deltaX <= -20 || deltaY <= -20 || deltaZ <= -20) { //deltaY is the most important
   
-  step_count = step_count + 1;
+  stepCount = stepCount + 1;
   Bean.setLed(255,0,0);
   Bean.sleep(25);
   
@@ -59,13 +71,13 @@ double height = 6*12+2; // inputs INCHES
 double weight = 200; // inputs LBS
 
 double stride = height*0.414*0.0254; // inches to meters conversion
-double distance = (stride*step_count)/(1609.34); // miles traveled
+double distance = (stride*stepCount)/(1609.34); // miles traveled
 double calories = distance*(0.57*weight); // calories burnt BASED ON LIVESTRONG
-double literature_cal = ((stride*step_count)/1000)*(weight*0.45359237)*0.7788; //Calories burnt based on literature review
+double literature_cal = ((stride*stepCount)/1000)*(weight*0.45359237)*0.7788; //Calories burnt based on literature review
 
 
 Serial.print("Step count: ");
-Serial.println(step_count);
+Serial.println(stepCount);
 Serial.print("Miles performed: ");
 Serial.println(distance);
 Serial.print("Calories burnt: ");
@@ -75,4 +87,3 @@ Serial.println(literature_cal);
 Bean.sleep(25);
     
 }
-
