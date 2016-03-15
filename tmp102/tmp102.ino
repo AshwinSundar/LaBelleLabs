@@ -23,7 +23,7 @@
 //Released under the MIT License - Please reuse change and share
 //Simple code for the TMP102, simply prints temperature via serial
 //////////////////////////////////////////////////////////////////
-
+// extra
 #include <Wire.h>
 int tmp102Address = 0x48;
 int testVariable1 = 0;
