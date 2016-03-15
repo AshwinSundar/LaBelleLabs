@@ -1,3 +1,3 @@
 #LaBelleLabs
-##On-Body Sensing
+##Project Honeybee
 ###Arizona State University
