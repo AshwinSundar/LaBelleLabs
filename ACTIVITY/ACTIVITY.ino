@@ -1,25 +1,26 @@
-// INSTRUCTIONS FOR EDITOR - THIS SECTION MUST BE COMPLETED
-// Fill out this header section BEFORE attempting to commit changes to GitHub
+//// //// //// //// //// 
+// Please read - the following section MUST be completed BEFORE attempting to commit
+// changes to GitHub.
+//// //// //// //// ////
 // Title of File: ACTIVITY.ino
 // Name of Editor: Ashwin Sundar
 // Date of GitHub commit: March 14, 2016
-// What specific changes were made to this code, compared to the code currently up-to-date
+// What specific changes were made to this code, compared to the currently up-to-date code
 // on GitHub?: Cleaned up the code. Removed unneccessary variables. Rewrote any variables 
 // that had unclear names
-// 
+//// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
-// function does.
+// function does. The name of the variable or function should reflect its purpose. 
 // 2) Comment copiously. Created a new variable or function? Explain why. Explain what
-// function do. Feel free to link to sites that you referenced for an algorithm,
-// for example. 
+// your functions do. Feel free to link to sites that you referenced for information. 
 // 3) Please compile your code, run it on a device, and make sure it is functional BEFORE
-// pushing up to GitHub. 
+// committing changes to GitHub. 
+//// //// //// //// ////
 
 // Steps are integer values. I initialize step count at 0 when the sketch loads
 // for the first time. I currently do not have a way to save the step count in the
 // event that the device shuts off. 
-
 int stepCount = 0; 
 
 void setup() {
