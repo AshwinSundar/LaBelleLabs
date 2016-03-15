@@ -26,6 +26,8 @@
 
 #include <Wire.h>
 int tmp102Address = 0x48;
+int testVariable1 = 0;
+int testVariable2 = 0;
 
 void setup(){
   Serial.begin(9600);
