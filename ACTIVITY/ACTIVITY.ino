@@ -1,5 +1,3 @@
-// edit 2
-// Modified 14 March 2015
 // INSTRUCTIONS FOR EDITOR - THIS SECTION MUST BE COMPLETED
 // Fill out this header section BEFORE attempting to commit changes to GitHub
 // Title of File: ACTIVITY.ino
