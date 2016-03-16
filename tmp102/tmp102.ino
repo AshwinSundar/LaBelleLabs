@@ -21,6 +21,8 @@
 //////////////////////////////////////////////////////////////////
 #include <Wire.h>
 int tmp102Address = 0x48;
+int testVariable1 = 0; //created this variable while following the tutorial
+int testVariable2 = 0; //created this variable while following the tutorial
 
 void setup(){
   Wire.begin();
