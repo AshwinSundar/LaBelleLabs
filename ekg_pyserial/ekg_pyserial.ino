@@ -4,12 +4,10 @@
 //// //// //// //// ////
 // Title of File: ekg_pyserial.ino
 // Name of Editor: Ashwin Sundar
-// Date of GitHub commit: March 15, 2016
+// Date of GitHub commit: March 16, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Removed Serial commands because we are not using Serial. Added provision for 
-// SD functionality to save EKG waveform. Added provision peak detect algorithm. Removed 
-// analogEKG variable to speed up program. Minor edit to point 3 of best coding practices. 
-// Wrote numerical differentiation algorithm. 
+// on GitHub?: Reviewed code with Muai. Wrote computeAverageOfArrayElements function. Made 
+// provision for standard deviation function. 
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -55,6 +53,24 @@ void loop()
 // of the word "instantaneous". 
 float numericalDifferentiation(float x1, float x2, float h) {
   return (x2 - x1)/h;  
+}
+
+// computeAverageOfArrayElements returns the average of an array of any size. 
+float computeAverageOfArrayElements(float x[]){
+  // i is an incrementation variable.
+  float sumOfArrayElements = 0;
+  int lengthOfArray = sizeof(x); 
+  
+  for(int i = 0; i < sizeof(x); i++)
+  {
+    sumOfArrayElements += x[i];
+  }
+  
+  return sumOfArrayElements/lengthOfArray;
+}
+
+// Made provision for standard deviation function. 
+float standardDeviationOfArrayElements(float x[]){
 }
 
 
