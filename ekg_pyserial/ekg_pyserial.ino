@@ -4,10 +4,10 @@
 //// //// //// //// ////
 // Title of File: ekg_pyserial.ino
 // Name of Editor: Ashwin Sundar
-// Date of GitHub commit: March 16, 2016
+// Date of GitHub commit: March 19, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Reviewed code with Muai. Wrote computeAverageOfArrayElements function. Made 
-// provision for standard deviation function. 
+// on GitHub?: Wrote standardDeviationOfArrayElements. Updated comments for each function to indicate
+// that functions have yet to be verified. 
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -20,6 +20,7 @@
 // Main Arduino Code - setup and loop
 //// //// //// //// ////
 #include "Arduino.h"
+#include "math.h"
 
 int analogPin = 0;
 float voltageEKG;
@@ -50,12 +51,12 @@ void loop()
 // point f(x+h). f is not a mathematical function. Rather, it's just the incoming analog data. When 
 // this function is called, the slope between x1 and x2 is calculated. For our purposes, this is the 
 // instantaneous rate of change of our data, although mathematicians might get upset at my liberal use
-// of the word "instantaneous". 
+// of the word "instantaneous". Function has not been validated yet. 
 float numericalDifferentiation(float x1, float x2, float h) {
   return (x2 - x1)/h;  
 }
 
-// computeAverageOfArrayElements returns the average of an array of any size. 
+// computeAverageOfArrayElements returns the average of an array of any size. Function has not been validated yet. 
 float computeAverageOfArrayElements(float x[]){
   // i is an incrementation variable.
   float sumOfArrayElements = 0;
@@ -69,8 +70,20 @@ float computeAverageOfArrayElements(float x[]){
   return sumOfArrayElements/lengthOfArray;
 }
 
-// Made provision for standard deviation function. 
+// Made provision for standard deviation function. Computed average inside of function to improve run time.
+// math.h library doesn't occupy any space unless you try to access it. I know in python (or Fortran?) you can 
+// pull only the function you want to use. I'm not sure how to do that in C++. This might be a good question for 
+// Prof. Spano. Function has not been validated yet. 
+// Using https://en.wikipedia.org/wiki/Standard_deviation as reference for standard deviation computation. 
 float standardDeviationOfArrayElements(float x[]){
+  float arrayAverage = computeAverageOfArrayElements(x);
+  float elementDeviationSum = 0; 
+  for (int i = 0; i < sizeof(x); i++)
+  {
+    elementDeviationSum += pow((x[i] - arrayAverage), 2);
+  }
+  
+  return pow(elementDeviationSum/sizeof(x), 0.5);
 }
 
 
