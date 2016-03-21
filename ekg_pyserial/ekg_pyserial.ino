@@ -3,11 +3,11 @@
 // changes to GitHub.
 //// //// //// //// ////
 // Title of File: ekg_pyserial.ino
-// Name of Editor: Ashwin Sundar
-// Date of GitHub commit: March 19, 2016
+// Name of Editor: Muawiya Al-Khalidi
+// Date of GitHub commit: March 21, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Wrote standardDeviationOfArrayElements. Updated comments for each function to indicate
-// that functions have yet to be verified. 
+// on GitHub?: Wrote RangeOfArrayElements. Calculates the range of the array.
+// showing the difference between the maxium and minimum value in the array. 
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -86,4 +86,21 @@ float standardDeviationOfArrayElements(float x[]){
   return pow(elementDeviationSum/sizeof(x), 0.5);
 }
 
-
+//RangeofArray computes the difference between the maximum value of the array and the minimum value of the array.
+//The function thus gives the range of array. Function has not yet been validated
+float RangeofArray(float x[]){
+  int lengthofArray = sizeof(x);
+  float minimumValue = x[0];
+  float maximumValue = x[0];
+  for (int i = 0; i < lengthofArray; i++)
+  {
+    if(minimumValue > x[i+1]){
+      minimumValue = x[i+1];
+    }
+    if(maximumValue < x[i+1]){
+      maximumValue = x[i+1];
+    }
+  }
+  return (maximumValue-minimumValue);
+}
+  
