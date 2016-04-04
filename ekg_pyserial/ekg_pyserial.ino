@@ -6,6 +6,10 @@
 // Name of Editor: Muawiya Al-Khalidi
 // Date of GitHub commit: March 21, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
+// on GitHub?: Wrote rangeOfArray. Calculates the range of the array. Shows the difference 
+// between the maximum and minimum value in the array. Ashwin -> Revised function name for 
+// grammatical unity. Merged rangeOfArray with existing code (Muawi did not click sync prior 
+// to editing code).
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -84,6 +88,9 @@ float standardDeviationOfArrayElements(float x[]){
   return pow(elementDeviationSum/sizeof(x), 0.5);
 }
 
+// rangeOfArray computes the difference between the maximum value of the array and the minimum value of the array.
+// The function thus gives the range of array. Function has not yet been validated
+float rangeOfArray(float x[]){
   int lengthofArray = sizeof(x);
   float minimumValue = x[0];
   float maximumValue = x[0];
@@ -98,3 +105,4 @@ float standardDeviationOfArrayElements(float x[]){
   }
   return (maximumValue-minimumValue);
 }
+
