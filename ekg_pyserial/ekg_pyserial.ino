@@ -4,12 +4,17 @@
 //// //// //// //// ////
 // Title of File: ekg_pyserial.ino
 // Name of Editor: Muawiya Al-Khalidi
-// Date of GitHub commit: March 21, 2016
+// Date of GitHub commit: April 4, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Wrote rangeOfArray. Calculates the range of the array. Shows the difference 
-// between the maximum and minimum value in the array. Ashwin -> Revised function name for 
-// grammatical unity. Merged rangeOfArray with existing code (Muawi did not click sync prior 
-// to editing code).
+// on GitHub?: Three main things where done: Firstly sizeof(array) returns the amount of bytes in the array
+// thus a defined a variable to return the amount of elements in the array which is needed
+// to calculate the average, standard deviation, and range. Secondly I created a circular array
+// based on an already predefined array size and as of now set the size to contain any amount we need.
+// I set it arbiturarily to be 250 elements this can be changed
+// Thirdly I created a calibration function to fill the predefined array so that we can have
+// an initial average, standard deviation, and range to calculate the threshold.
+// Forthly I removed the delay functions and replaced it with the timer function & set it
+// to sample the EKG every 10ms (sampling rate 100Hz), I also used the modulus operator to do this
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -24,8 +29,59 @@
 #include "Arduino.h"
 #include "math.h"
 
+
+//sizeof(array) returns the amounts of bytes in the array. Dividing the total amount of bytes in the array
+//by the byte size of a single element in the array gives the total amount of elements in the array.
+//http://en.cppreference.com/w/cpp/language/sizeof -> c++ reference for 
+
+#define array_size(array) (sizeof((array))/sizeof((array[0])))
+
+//defining the size of the array, this is arbitrary & can be changed.
+//Weaknesses of predefined array:
+//1.Limited storage of EKG due to size of the array -> User could still have more inputs
+//2.Wasted memory if we do not use entire array -> User may use too few array elements and waste memory (RAM)
+#define array_length 250
+
+//Using the timer function instead of delay function to set sampling rate
+//Arduino timer function returns an unsigned long variable
+//Created time variable to store milliseconds from the millis function
+//https://www.arduino.cc/en/Reference/Millis
+unsigned long time;
+
+//EKG Analog Pin
 int analogPin = 0;
-float voltageEKG;
+//Instantiating an array
+float voltageEKG[array_length];
+//Creating an index variable for the array
+int index = 0;
+//Passing the address of variable to a pointer, so that it can be passed to a function and dereferenced
+//to change the value of index
+int *index_address = &index;
+
+
+//Initial EKG Calibration functions where it occupies all the elements in the voltageEKG array
+//To return an float array the calibration function was created that declares its return type
+//as returning a float pointer
+float* calibration(){
+  
+  int i = 0;
+  
+  while(i < array_length){
+    time = millis();
+    //Any multiple of 10 returns 0 when modulus with ten
+    //Thus after every 10 milliseconds the if statement is true and thus executes every 10 milliseconds
+    //http://www.cprogramming.com/tutorial/modulus.html
+    if ((time % 10)==0){
+      //Storing analog voltage into array
+      voltageEKG[i] = analogRead(analogPin)*5.0/1024.0;
+      i++;
+    }
+  }
+  
+  //returning the array pointer
+  return voltageEKG; 
+  
+}
 
 void setup()
 {
@@ -34,15 +90,68 @@ void setup()
 
 void loop()
 {
+  //Creating a pointer that will accept the pointer from the calibration function
+  float * voltageEKGCalibrated;
+  voltageEKGCalibrated = calibration();
+  time = millis();
+  
   // Refer to page 80 of medical instrumentation text for information on
   // calculating statistical distributions of data and noise
-  voltageEKG = analogRead(analogPin)*5.0/1024.0;
+  
+  
+  //Every 10 milliseconds this statement is true and thus executes whats inside the if statement
+  if((time % 10)==0){
+  
+  //int i calls the index_array functions and passes the pointer index_address to get the index of array element
+  //that needs to be updated in the circular array
+  int i = index_array(index_address); 
+  
+  //voltageEKGCalibrated replaces its ith - 1 element with a new analog voltage reading
+  //Initially the index is at 0 and when incremented equals to 1
+  //Thus to update the 0 element (the first element in the array) i is substracted by one
+  *(voltageEKGCalibrated+i-1) = analogRead(analogPin)*5.0/1024.0;
+  //voltageEKGCalibrated[i-1] = analogRead(analogPin)*5.0/1024.0 would also execute the same way
   // Use Professor Spano's peak detect algorithm here. 
+  
+  }
+  
+  //Passing the pointer to the auxillary functions:
+  //Float average gets the average of the array
+  float average = computeAverageOfArrayElements(voltageEKGCalibrated);
+  //Float standard_deviation gets the standard deviation of the array
+  float standard_deviation = standardDeviationOfArrayElements(voltageEKGCalibrated);
+  //Float range gets the range of the array
+  float range = rangeOfArray(voltageEKGCalibrated);
+  //Float numerical_derivative gets the slope between two consective points where the time interval between them is 10 milliseconds
+  //10 milliseconds = 0.01 seconds thus that is why the third input in numericalDifferentiation is 0.01
+  float numerical_derivative = numericalDifferentiation(*(voltageEKGCalibrated+index-1),*(voltageEKGCalibrated+index),0.01);
+  
   
   // Establish an SD communications protocol here. Store the EKG waveform on the SD card. 
 
-  delay(10); // sampling rate = 100Hz to satisfy Nyquist criteria for EKG waveform detection. 
+  // sampling rate = 100Hz to satisfy Nyquist criteria for EKG waveform detection. 
 }
+
+//Creating an index function that returns an integer
+//Index_array accepts an pointer to integer, to dereference the pointer and change its value.
+int index_array (int *x){
+  //Derefencing the pointer and incrementing the interger its pointing to by 1
+  //In this case it is incrementing the global variable index by 1
+  *x = *x+1;
+  
+  //If the value of index is greater than the length of the array it starts it back to the initial point
+  if(*x > array_length){
+    *x = 1;
+  }
+  
+  //Passing the derefence value to an index variable that is returned when called upon
+  //Essentially creating a circular array on a predefined array
+  int index = *x;
+  return index;
+  
+}
+
+
 //// //// //// //// ////
 //// //// //// //// ////
 // Auxilliary functions
@@ -62,9 +171,9 @@ float numericalDifferentiation(float x1, float x2, float h) {
 float computeAverageOfArrayElements(float x[]){
   // i is an incrementation variable.
   float sumOfArrayElements = 0;
-  int lengthOfArray = sizeof(x); 
+  int lengthOfArray = array_size(x); 
   
-  for(int i = 0; i < sizeof(x); i++)
+  for(int i = 0; i < lengthOfArray; i++)
   {
     sumOfArrayElements += x[i];
   }
@@ -80,21 +189,22 @@ float computeAverageOfArrayElements(float x[]){
 float standardDeviationOfArrayElements(float x[]){
   float arrayAverage = computeAverageOfArrayElements(x);
   float elementDeviationSum = 0; 
-  for (int i = 0; i < sizeof(x); i++)
+  int lengthOfArray = array_size(x);
+  for (int i = 0; i < lengthOfArray; i++)
   {
     elementDeviationSum += pow((x[i] - arrayAverage), 2);
   }
   
-  return pow(elementDeviationSum/sizeof(x), 0.5);
+  return pow(elementDeviationSum/lengthOfArray, 0.5);
 }
 
 // rangeOfArray computes the difference between the maximum value of the array and the minimum value of the array.
 // The function thus gives the range of array. Function has not yet been validated
 float rangeOfArray(float x[]){
-  int lengthofArray = sizeof(x);
+  int lengthOfArray = array_size(x);
   float minimumValue = x[0];
   float maximumValue = x[0];
-  for (int i = 0; i < lengthofArray; i++)
+  for (int i = 0; i < lengthOfArray; i++)
   {
     if(minimumValue > x[i+1]){
       minimumValue = x[i+1];
