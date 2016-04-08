@@ -6,8 +6,8 @@
 // Name of Editor: Ashwin Sundar
 // Date of GitHub commit: April 7 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: We want to just look at the x, y, z data without all this tap detection bus-
-// iness. I deleted any of the code that was processing the data. 
+// on GitHub?: Modified the code to work with the Light Blue Bean, so the test subject
+// can walk around with the device and we can collect data wirelessly at our laptops. 
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -24,7 +24,7 @@
 #include <ADXL345.h>
 
 
-ADXL345 adxl; //variable adxl is an instance of the ADXL345 library
+ADXL345 adxl; // variable adxl is an instance of the ADXL345 library
 
 void setup(){
   Serial.begin(9600);
@@ -32,14 +32,17 @@ void setup(){
 }
 
 void loop(){
-  
-  //Boring accelerometer stuff   
+ 
   int x,y,z;  
   adxl.readAccel(&x, &y, &z); //read the accelerometer values and store them in variables  x,y,z
 
   // Output x,y,z values - Commented out
   Serial.print(x);
+  Serial.print(",");
   Serial.print(y);
+  Serial.print(",");
   Serial.println(z);
+  delay(200);
+  
  
 }
