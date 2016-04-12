@@ -2,7 +2,7 @@
 // Please read - the following section MUST be completed BEFORE attempting to commit
 // changes to GitHub.
 //// //// //// //// ////
-// Title of File: ekg_pyserial.ino
+// Title of File: ADXL345_Example.ino
 // Name of Editor: Ashwin Sundar
 // Date of GitHub commit: April 7 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
