@@ -3,18 +3,11 @@
 // changes to GitHub.
 //// //// //// //// ////
 // Title of File: ekg_pyserial.ino
-// Name of Editor: Muawiya Al-Khalidi
-// Date of GitHub commit: April 4, 2016
+// Name of Editor: Ashwin Sundar
+// Date of GitHub commit: April 12, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Three main things where done: Firstly sizeof(array) returns the amount of bytes in the array
-// thus a defined a variable to return the amount of elements in the array which is needed
-// to calculate the average, standard deviation, and range. Secondly I created a circular array
-// based on an already predefined array size and as of now set the size to contain any amount we need.
-// I set it arbiturarily to be 250 elements this can be changed
-// Thirdly I created a calibration function to fill the predefined array so that we can have
-// an initial average, standard deviation, and range to calculate the threshold.
-// Forthly I removed the delay functions and replaced it with the timer function & set it
-// to sample the EKG every 10ms (sampling rate 100Hz), I also used the modulus operator to do this
+// on GitHub?: Made minor organizational changes. Moved callibration function into "Auxillary 
+// functions" section. 
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -57,31 +50,6 @@ int index = 0;
 //Passing the address of variable to a pointer, so that it can be passed to a function and dereferenced
 //to change the value of index
 int *index_address = &index;
-
-
-//Initial EKG Calibration functions where it occupies all the elements in the voltageEKG array
-//To return an float array the calibration function was created that declares its return type
-//as returning a float pointer
-float* calibration(){
-  
-  int i = 0;
-  
-  while(i < array_length){
-    time = millis();
-    //Any multiple of 10 returns 0 when modulus with ten
-    //Thus after every 10 milliseconds the if statement is true and thus executes every 10 milliseconds
-    //http://www.cprogramming.com/tutorial/modulus.html
-    if ((time % 10)==0){
-      //Storing analog voltage into array
-      voltageEKG[i] = analogRead(analogPin)*5.0/1024.0;
-      i++;
-    }
-  }
-  
-  //returning the array pointer
-  return voltageEKG; 
-  
-}
 
 void setup()
 {
@@ -214,5 +182,29 @@ float rangeOfArray(float x[]){
     }
   }
   return (maximumValue-minimumValue);
+}
+
+//Initial EKG Calibration functions where it occupies all the elements in the voltageEKG array
+//To return an float array the calibration function was created that declares its return type
+//as returning a float pointer
+float* calibration(){
+  
+  int i = 0;
+  
+  while(i < array_length){
+    time = millis();
+    //Any multiple of 10 returns 0 when modulus with ten
+    //Thus after every 10 milliseconds the if statement is true and thus executes every 10 milliseconds
+    //http://www.cprogramming.com/tutorial/modulus.html
+    if ((time % 10)==0){
+      //Storing analog voltage into array
+      voltageEKG[i] = analogRead(analogPin)*5.0/1024.0;
+      i++;
+    }
+  }
+  
+  //returning the array pointer
+  return voltageEKG; 
+  
 }
 
