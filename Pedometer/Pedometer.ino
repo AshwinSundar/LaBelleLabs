@@ -2,12 +2,11 @@
 // Please read - the following section MUST be completed BEFORE attempting to commit
 // changes to GitHub.
 //// //// //// //// ////
-// Title of File: ACTIVITY.ino
+// Title of File: Pedometer.ino
 // Name of Editor: Ashwin Sundar
-// Date of GitHub commit: March 14, 2016
+// Date of GitHub commit: April 12, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Cleaned up the code. Removed unneccessary variables. Rewrote any variables 
-// that had unclear names
+// on GitHub?: Changed file name for clarity. 
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or

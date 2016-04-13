@@ -2,13 +2,11 @@
 // Please read - the following section MUST be completed BEFORE attempting to commit
 // changes to GitHub.
 //// //// //// //// ////
-// Title of File: ACTIVITY.ino
+// Title of File: BodyTemperature.ino
 // Name of Editor: Ashwin Sundar
-// Date of GitHub commit: March 14, 2016
+// Date of GitHub commit: April 12 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Removed Serial commands because we are not communicating via Serial. 
-// Optimized code for speed by removing unnecessary lines. Removed delay(1000) in setup. 
-// Removed fahrenheit conversion. Created placeholder for bluetooth communications in the loop.  
+// on GitHub?: Changed file name for clarity. 
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
