@@ -6,7 +6,8 @@
  // Name of Editor: Ashwin Sundar
  // Date of GitHub commit: April 15, 2016
  // What specific changes were made to this code, compared to the currently up-to-date code
- // on GitHub?: Replaced all code with SPI based code.
+ // on GitHub?: Initial commit of SPI-based code. Based on code available at
+ // http://sparkfun.com/tutorial/ADXL/ADXL345_Basic.pde
  //// //// //// //// ////
  // Best coding practices
  // 1) When you create a new variable or function, make it obvious what the variable or
@@ -29,11 +30,14 @@
 // http://www.analog.com/media/en/technical-documentation/data-sheets/ADXL345.pdf
 
 
-#define DEVICE (0x53) // Device address as specified in ADXL345 data sheet. Must
-// connect CS to ground.
+//Add the SPI library so we can communicate with the ADXL345 sensor
+#include <SPI.h>
 
-byte _buff[6];
+//Assign the Chip Select signal to pin 10.
+int CS=10;
 
+//This is a list of some of the registers available on the ADXL345.
+//To learn more about these and the rest of the registers on the ADXL345, read the datasheet!
 char POWER_CTL = 0x2D;	//Power Control Register
 char DATA_FORMAT = 0x31;
 char DATAX0 = 0x32;	//X-Axis Data 0
@@ -43,76 +47,86 @@ char DATAY1 = 0x35;	//Y-Axis Data 1
 char DATAZ0 = 0x36;	//Z-Axis Data 0
 char DATAZ1 = 0x37;	//Z-Axis Data 1
 
-int ADXL345XAcceleration = 0; // x acceleration
-int ADXL345YAcceleration = 0; // y acceleration
-int ADXL345ZAcceleration = 0; // z acceleration
+//This buffer will hold values read from the ADXL345 registers.
+char values[10];
+//These variables will be used to hold the x,y and z axis accelerometer values.
+int x,y,z;
 
-void setup()
-{
-  // Let's register some Particle variables to the Particle cloud.
-  // This means when we "ask" the Particle cloud for the string in quotes, we will get
-  // the value after the comma.
-  Particle.variable("ADXL345XAcceleration", ADXL345XAcceleration);
-  Particle.variable("ADXL345YAcceleration", ADXL345YAcceleration);
-  Particle.variable("ADXL345ZAcceleration", ADXL345ZAcceleration);
-
-  Wire.begin();        // join i2c bus (address optional for master)
-  //Put the ADXL345 into +/- 4G range by writing the value 0x01 to the DATA_FORMAT register.
-  writeTo(DATA_FORMAT, 0x01);
-  //Put the ADXL345 into Measurement Mode by writing 0x08 to the POWER_CTL register.
-  writeTo(POWER_CTL, 0x08);
-
-  // Serial is solely for debugging.
+void setup(){
+  //Initiate an SPI communication instance.
+  SPI.begin();
+  //Configure the SPI connection for the ADXL345.
+  SPI.setDataMode(SPI_MODE3);
+  //Create a serial connection to display the data on the terminal.
   Serial.begin(9600);
 
+  //Set up the Chip Select pin to be an output from the Arduino.
+  pinMode(CS, OUTPUT);
+  //Before communication starts, the Chip Select pin needs to be set high.
+  digitalWrite(CS, HIGH);
 
+  //Put the ADXL345 into +/- 4G range by writing the value 0x01 to the DATA_FORMAT register.
+  writeRegister(DATA_FORMAT, 0x01);
+  //Put the ADXL345 into Measurement Mode by writing 0x08 to the POWER_CTL register.
+  writeRegister(POWER_CTL, 0x08);  //Measurement mode
 }
 
-void loop()
-{
-  readAccel(); // read the x/y/z tilt
-  delay(500); // only read every 0,5 seconds
-  // debugging information
-  Serial.print("x: ");
-  Serial.print(ADXL345XAcceleration);
-  Serial.print("y: ");
-  Serial.print(ADXL345YAcceleration);
-  Serial.print("z: ");
-  Serial.println(ADXL345ZAcceleration);
+void loop(){
+  //Reading 6 bytes of data starting at register DATAX0 will retrieve the x,y and z acceleration values from the ADXL345.
+  //The results of the read operation will get stored to the values[] buffer.
+  readRegister(DATAX0, 6, values);
+
+  //The ADXL345 gives 10-bit acceleration values, but they are stored as bytes (8-bits). To get the full value, two bytes must be combined for each axis.
+  //The X value is stored in values[0] and values[1].
+  x = ((int)values[1]<<8)|(int)values[0];
+  //The Y value is stored in values[2] and values[3].
+  y = ((int)values[3]<<8)|(int)values[2];
+  //The Z value is stored in values[4] and values[5].
+  z = ((int)values[5]<<8)|(int)values[4];
+
+  //Print the results to the terminal.
+  Serial.print(x, DEC);
+  Serial.print(',');
+  Serial.print(y, DEC);
+  Serial.print(',');
+  Serial.println(z, DEC);
+  delay(10);
 }
 
-void readAccel() {
-  uint8_t howManyBytesToRead = 6;
-  readFrom( DATAX0, howManyBytesToRead, _buff); //read the acceleration data from the ADXL345
-
-  // each axis reading comes in 10 bit resolution, ie 2 bytes.  Least Significant Byte first!!
-  // thus we are converting both bytes in to one int
-  ADXL345XAcceleration = (((int)_buff[1]) << 8) | _buff[0];
-  ADXL345YAcceleration = (((int)_buff[3]) << 8) | _buff[2];
-  ADXL345ZAcceleration = (((int)_buff[5]) << 8) | _buff[4];
+//This function will write a value to a register on the ADXL345.
+//Parameters:
+//  char registerAddress - The register to write a value to
+//  char value - The value to be written to the specified register.
+void writeRegister(char registerAddress, char value){
+  //Set Chip Select pin low to signal the beginning of an SPI packet.
+  digitalWrite(CS, LOW);
+  //Transfer the register address over SPI.
+  SPI.transfer(registerAddress);
+  //Transfer the desired register value over SPI.
+  SPI.transfer(value);
+  //Set the Chip Select pin high to signal the end of an SPI packet.
+  digitalWrite(CS, HIGH);
 }
 
-void writeTo(byte address, byte val) {
-  Wire.beginTransmission(DEVICE); // start transmission to device
-  Wire.write(address);             // send register address
-  Wire.write(val);                 // send value to write
-  Wire.endTransmission();         // end transmission
-}
+//This function will read a certain number of registers starting from a specified address and store their values in a buffer.
+//Parameters:
+//  char registerAddress - The register addresse to start the read sequence from.
+//  int numBytes - The number of registers that should be read.
+//  char * values - A pointer to a buffer where the results of the operation should be stored.
+void readRegister(char registerAddress, int numBytes, char * values){
+  //Since we're performing a read operation, the most significant bit of the register address should be set.
+  char address = 0x80 | registerAddress;
+  //If we're doing a multi-byte read, bit 6 needs to be set as well.
+  if(numBytes > 1)address = address | 0x40;
 
-// Reads num bytes starting from address register on device in to _buff array
-void readFrom(byte address, int num, byte _buff[]) {
-  Wire.beginTransmission(DEVICE); // start transmission to device
-  Wire.write(address);             // sends address to read from
-  Wire.endTransmission();         // end transmission
-
-  Wire.beginTransmission(DEVICE); // start transmission to device
-  Wire.requestFrom(DEVICE, num);    // request 6 bytes from device
-
-  int i = 0;
-  while(Wire.available())         // device may send less than requested (abnormal)
-  {
-    _buff[i] = Wire.read();    // receive a byte
-    i++;
+  //Set the Chip select pin low to start an SPI packet.
+  digitalWrite(CS, LOW);
+  //Transfer the starting register address that needs to be read.
+  SPI.transfer(address);
+  //Continue to read registers until we've read the number specified, storing the results to the input buffer.
+  for(int i=0; i<numBytes; i++){
+    values[i] = SPI.transfer(0x00);
   }
-  Wire.endTransmission();         // end transmission
+  //Set the Chips Select pin high to end the SPI packet.
+  digitalWrite(CS, HIGH);
 }
