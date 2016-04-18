@@ -6,10 +6,9 @@
 // Name of Editor: Ashwin Sundar
 // Date of GitHub commit: April 18, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: I finally figured out why variable requests were mysteriously returning 0
-// variables available. When you create variables in the Particle IDE (code that actually
-// runs on the Photon) and publish them to the cloud, the name of the variable cannot exceed
-// 12 characters, and you also may not publish more than 10 variables to the cloud.
+// on GitHub?: Attempting to troubleshoot accelerometer. Getting all 0's when I connect
+// to Photon over Serial. Also added Particle.publish() functionality so a user can
+// subscribe to events.  
 // ---------
 // As an example, this is valid:
 // Particle.publish("XAccel", myXAccel);
@@ -42,13 +41,12 @@
 // All of the addresses specified below are given in the datasheet, available here:
 // http://www.analog.com/media/en/technical-documentation/data-sheets/ADXL345.pdf
 
-
 #define DEVICE (0x53) // Device address as specified in ADXL345 data sheet. Must
 // connect CS to ground.
 
 byte _buff[6];
 
-char POWER_CTL = 0x2D;	//Power Control Register
+char POWER_CTL = 0x2D;	// Power Control Register
 char DATA_FORMAT = 0x31;
 char DATAX0 = 0x32;	// X-Axis Data 0
 char DATAX1 = 0x33;	// X-Axis Data 1
@@ -57,12 +55,12 @@ char DATAY1 = 0x35;	// Y-Axis Data 1
 char DATAZ0 = 0x36;	// Z-Axis Data 0
 char DATAZ1 = 0x37;	// Z-Axis Data 1
 
-int XAccel; // x acceleration from the ADXL345
-int YAccel; // y acceleration from the ADXL345
-int ZAccel; // z acceleration from the ADXL345
-
 void setup()
 {
+  int XAccel; // x acceleration from the ADXL345
+  int YAccel; // y acceleration from the ADXL345
+  int ZAccel; // z acceleration from the ADXL345
+
  // Let's register some Particle variables to the Particle cloud.
  // This means when we "ask" the Particle cloud for the string in quotes, we will get
  // the value after the comma. Note: The published variable name in quotes AND the
@@ -85,7 +83,12 @@ void setup()
 void loop()
 {
  readAccel();
- delay(10); // how quickly do you want to read data?
+ delay(1000); // how quickly do you want to read data?
+ // I'm going to publish these variables, and on the Terminal side subscribe to
+ // these events
+ Particle.publish("XAccel", XAccel);
+ Particle.publish("YAccel", YAccel);
+ Particle.publish("ZAccel", ZAccel);
  // debugging information. Must have micro USB plugged in. Type "particle serial
  // monitor" into Terminal to begin Serial monitor.
  Serial.print("x: ");
