@@ -1,28 +1,41 @@
- //// //// //// //// ////
- // Please read - the following section MUST be completed BEFORE attempting to commit
- // changes to GitHub.
- //// //// //// //// ////
- // Title of File: PhotonDataDump.ino
- // Name of Editor: Ashwin Sundar
- // Date of GitHub commit: April 15, 2016
- // What specific changes were made to this code, compared to the currently up-to-date code
- // on GitHub?: Initial commit of SPI-based code. Based on code available at
- // http://sparkfun.com/tutorial/ADXL/ADXL345_Basic.pde
- //// //// //// //// ////
- // Best coding practices
- // 1) When you create a new variable or function, make it obvious what the variable or
- // function does. The name of the variable or function should reflect its purpose.
- // 2) Comment copiously. Created a new variable or function? Explain why. Explain what
- // your functions do. Feel free to link to sites that you referenced for information.
- // 3) Please compile your code and make sure it is functional BEFORE committing changes to GitHub.
- //// //// //// //// ////
- //// //// //// //// ////
+//// //// //// //// ////
+// Please read - the following section MUST be completed BEFORE attempting to commit
+// changes to GitHub.
+//// //// //// //// ////
+// Title of File: PhotonDataDump.ino
+// Name of Editor: Ashwin Sundar
+// Date of GitHub commit: April 18, 2016
+// What specific changes were made to this code, compared to the currently up-to-date code
+// on GitHub?: I finally figured out why variable requests were mysteriously returning 0
+// variables available. When you create variables in the Particle IDE (code that actually
+// runs on the Photon) and publish them to the cloud, the name of the variable cannot exceed
+// 12 characters, and you also may not publish more than 10 variables to the cloud.
+// ---------
+// As an example, this is valid:
+// Particle.publish("XAccel", myXAccel);
+// But this is not valid:
+// Particle.publish("myXAcceleration", myXAccel);
+// And neither is this:
+// Particle.publish("myXAccel", myXAcceleration);
+// ---------
+// The invalid examples exceed 12 characters either in the variable name published in quotes,
+// or in the actual variable name. These will cause variable requests to mysteriously return
+// 0 variables when you query the cloud for the number of variables available on the device.
+//// //// //// //// ////
+// Best coding practices
+// 1) When you create a new variable or function, make it obvious what the variable or
+// function does. The name of the variable or function should reflect its purpose.
+// 2) Comment copiously. Created a new variable or function? Explain why. Explain what
+// your functions do. Feel free to link to sites that you referenced for information.
+// 3) Please compile your code and make sure it is functional BEFORE committing changes to GitHub.
+//// //// //// //// ////
+//// //// //// //// ////
 
-// Cabling for i2c using Sparkfun breakout with a Spar Core
-// Spark Core <-> Breakout board
+// Particle Photon connections to ADXL345
+// Photon     <-> ADXL345 Breakout Board
 // Gnd         -  GND
 // 3.3v        -  VCC
-// GND        -  CS
+// GND         -  CS
 // Digital 0   -  SDA
 // Digital 1   -  SCL
 //
@@ -30,103 +43,91 @@
 // http://www.analog.com/media/en/technical-documentation/data-sheets/ADXL345.pdf
 
 
-//Add the SPI library so we can communicate with the ADXL345 sensor
-#include <SPI.h>
+#define DEVICE (0x53) // Device address as specified in ADXL345 data sheet. Must
+// connect CS to ground.
 
-//Assign the Chip Select signal to pin 10.
-int CS=10;
+byte _buff[6];
 
-//This is a list of some of the registers available on the ADXL345.
-//To learn more about these and the rest of the registers on the ADXL345, read the datasheet!
 char POWER_CTL = 0x2D;	//Power Control Register
 char DATA_FORMAT = 0x31;
-char DATAX0 = 0x32;	//X-Axis Data 0
-char DATAX1 = 0x33;	//X-Axis Data 1
-char DATAY0 = 0x34;	//Y-Axis Data 0
-char DATAY1 = 0x35;	//Y-Axis Data 1
-char DATAZ0 = 0x36;	//Z-Axis Data 0
-char DATAZ1 = 0x37;	//Z-Axis Data 1
+char DATAX0 = 0x32;	// X-Axis Data 0
+char DATAX1 = 0x33;	// X-Axis Data 1
+char DATAY0 = 0x34;	// Y-Axis Data 0
+char DATAY1 = 0x35;	// Y-Axis Data 1
+char DATAZ0 = 0x36;	// Z-Axis Data 0
+char DATAZ1 = 0x37;	// Z-Axis Data 1
 
-//This buffer will hold values read from the ADXL345 registers.
-char values[10];
-//These variables will be used to hold the x,y and z axis accelerometer values.
-int x,y,z;
+int XAccel; // x acceleration from the ADXL345
+int YAccel; // y acceleration from the ADXL345
+int ZAccel; // z acceleration from the ADXL345
 
-void setup(){
-  //Initiate an SPI communication instance.
-  SPI.begin();
-  //Configure the SPI connection for the ADXL345.
-  SPI.setDataMode(SPI_MODE3);
-  //Create a serial connection to display the data on the terminal.
-  Serial.begin(9600);
+void setup()
+{
+ // Let's register some Particle variables to the Particle cloud.
+ // This means when we "ask" the Particle cloud for the string in quotes, we will get
+ // the value after the comma. Note: The published variable name in quotes AND the
+ // actual variable name MUST be 12 characters or less. Otherwise, the cloud will
+ // ignore the variable and you won't be able to see it when you make a request.
+ Particle.variable("XAccel", XAccel);
+ Particle.variable("YAccel", YAccel);
+ Particle.variable("ZAccel", ZAccel);
 
-  //Set up the Chip Select pin to be an output from the Arduino.
-  pinMode(CS, OUTPUT);
-  //Before communication starts, the Chip Select pin needs to be set high.
-  digitalWrite(CS, HIGH);
+ Wire.begin(); // join i2c bus (address optional for master)
+ //Put the ADXL345 into +/- 4G range by writing the value 0x01 to the DATA_FORMAT register.
+ writeTo(DATA_FORMAT, 0x01);
+ //Put the ADXL345 into Measurement Mode by writing 0x08 to the POWER_CTL register.
+ writeTo(POWER_CTL, 0x08);
 
-  //Put the ADXL345 into +/- 4G range by writing the value 0x01 to the DATA_FORMAT register.
-  writeRegister(DATA_FORMAT, 0x01);
-  //Put the ADXL345 into Measurement Mode by writing 0x08 to the POWER_CTL register.
-  writeRegister(POWER_CTL, 0x08);  //Measurement mode
+ // Serial is solely for debugging.
+ Serial.begin(9600);
 }
 
-void loop(){
-  //Reading 6 bytes of data starting at register DATAX0 will retrieve the x,y and z acceleration values from the ADXL345.
-  //The results of the read operation will get stored to the values[] buffer.
-  readRegister(DATAX0, 6, values);
-
-  //The ADXL345 gives 10-bit acceleration values, but they are stored as bytes (8-bits). To get the full value, two bytes must be combined for each axis.
-  //The X value is stored in values[0] and values[1].
-  x = ((int)values[1]<<8)|(int)values[0];
-  //The Y value is stored in values[2] and values[3].
-  y = ((int)values[3]<<8)|(int)values[2];
-  //The Z value is stored in values[4] and values[5].
-  z = ((int)values[5]<<8)|(int)values[4];
-
-  //Print the results to the terminal.
-  Serial.print(x, DEC);
-  Serial.print(',');
-  Serial.print(y, DEC);
-  Serial.print(',');
-  Serial.println(z, DEC);
-  delay(10);
+void loop()
+{
+ readAccel();
+ delay(10); // how quickly do you want to read data?
+ // debugging information. Must have micro USB plugged in. Type "particle serial
+ // monitor" into Terminal to begin Serial monitor.
+ Serial.print("x: ");
+ Serial.print(XAccel);
+ Serial.print(" y: ");
+ Serial.print(YAccel);
+ Serial.print(" z: ");
+ Serial.println(ZAccel);
 }
 
-//This function will write a value to a register on the ADXL345.
-//Parameters:
-//  char registerAddress - The register to write a value to
-//  char value - The value to be written to the specified register.
-void writeRegister(char registerAddress, char value){
-  //Set Chip Select pin low to signal the beginning of an SPI packet.
-  digitalWrite(CS, LOW);
-  //Transfer the register address over SPI.
-  SPI.transfer(registerAddress);
-  //Transfer the desired register value over SPI.
-  SPI.transfer(value);
-  //Set the Chip Select pin high to signal the end of an SPI packet.
-  digitalWrite(CS, HIGH);
+void readAccel() {
+ uint8_t howManyBytesToRead = 6;
+ readFrom( DATAX0, howManyBytesToRead, _buff); // read the acceleration data from the ADXL345
+
+ // each axis reading comes in 10 bit resolution, ie 2 bytes.  Least Significant Byte first.
+ // thus we are converting both bytes into a single int, for each axis.
+ XAccel = (((int)_buff[1]) << 8) | _buff[0];
+ YAccel = (((int)_buff[3]) << 8) | _buff[2];
+ ZAccel = (((int)_buff[5]) << 8) | _buff[4];
 }
 
-//This function will read a certain number of registers starting from a specified address and store their values in a buffer.
-//Parameters:
-//  char registerAddress - The register addresse to start the read sequence from.
-//  int numBytes - The number of registers that should be read.
-//  char * values - A pointer to a buffer where the results of the operation should be stored.
-void readRegister(char registerAddress, int numBytes, char * values){
-  //Since we're performing a read operation, the most significant bit of the register address should be set.
-  char address = 0x80 | registerAddress;
-  //If we're doing a multi-byte read, bit 6 needs to be set as well.
-  if(numBytes > 1)address = address | 0x40;
+void writeTo(byte address, byte val) {
+ Wire.beginTransmission(DEVICE); // start transmission to device
+ Wire.write(address);             // send register address
+ Wire.write(val);                 // send value to write
+ Wire.endTransmission();         // end transmission
+}
 
-  //Set the Chip select pin low to start an SPI packet.
-  digitalWrite(CS, LOW);
-  //Transfer the starting register address that needs to be read.
-  SPI.transfer(address);
-  //Continue to read registers until we've read the number specified, storing the results to the input buffer.
-  for(int i=0; i<numBytes; i++){
-    values[i] = SPI.transfer(0x00);
-  }
-  //Set the Chips Select pin high to end the SPI packet.
-  digitalWrite(CS, HIGH);
+// Reads num bytes starting from address register on device in to _buff array
+void readFrom(byte address, int num, byte _buff[]) {
+ Wire.beginTransmission(DEVICE); // start transmission to device
+ Wire.write(address);             // sends address to read from
+ Wire.endTransmission();         // end transmission
+
+ Wire.beginTransmission(DEVICE); // start transmission to device
+ Wire.requestFrom(DEVICE, num);    // request 6 bytes from device
+
+ int i = 0;
+ while(Wire.available())         // device may send less than requested (abnormal)
+ {
+   _buff[i] = Wire.read();    // receive a byte
+   i++;
+ }
+ Wire.endTransmission();         // end transmission
 }
