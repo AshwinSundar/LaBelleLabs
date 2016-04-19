@@ -8,7 +8,7 @@
 // What specific changes were made to this code, compared to the currently up-to-date code
 // on GitHub?: Attempting to troubleshoot accelerometer. Getting all 0's when I connect
 // to Photon over Serial. Also added Particle.publish() functionality so a user can
-// subscribe to events.  
+// subscribe to events.
 // ---------
 // As an example, this is valid:
 // Particle.publish("XAccel", myXAccel);
@@ -48,6 +48,7 @@ byte _buff[6];
 
 char POWER_CTL = 0x2D;	// Power Control Register
 char DATA_FORMAT = 0x31;
+char BW_RATE = 0x2C;
 char DATAX0 = 0x32;	// X-Axis Data 0
 char DATAX1 = 0x33;	// X-Axis Data 1
 char DATAY0 = 0x34;	// Y-Axis Data 0
@@ -55,12 +56,12 @@ char DATAY1 = 0x35;	// Y-Axis Data 1
 char DATAZ0 = 0x36;	// Z-Axis Data 0
 char DATAZ1 = 0x37;	// Z-Axis Data 1
 
+int XAccel; // x acceleration from the ADXL345
+int YAccel; // y acceleration from the ADXL345
+int ZAccel; // z acceleration from the ADXL345
+
 void setup()
 {
-  int XAccel; // x acceleration from the ADXL345
-  int YAccel; // y acceleration from the ADXL345
-  int ZAccel; // z acceleration from the ADXL345
-
  // Let's register some Particle variables to the Particle cloud.
  // This means when we "ask" the Particle cloud for the string in quotes, we will get
  // the value after the comma. Note: The published variable name in quotes AND the
@@ -71,10 +72,28 @@ void setup()
  Particle.variable("ZAccel", ZAccel);
 
  Wire.begin(); // join i2c bus (address optional for master)
- //Put the ADXL345 into +/- 4G range by writing the value 0x01 to the DATA_FORMAT register.
- writeTo(DATA_FORMAT, 0x01);
+ // Register 0x31 is Data_Format. See datasheet for more details.
+ // Self-test = 1 --> Applies a self-test force to the sensor, causing
+ // a shift in the data.
+ // SPI = 1 --> initialize 3-wire SPI mode.
+ // Int_Invert = 0;
+ // Full_Res = 1 --> Allows resolution to match the range
+ // D4 = 0 --> unused
+ // Justify = 0 --> Enable LSB
+ // Range =  01 --> Enable +/- 4G mode
+ // Result: 11001001 = 0xC9
+ writeTo(DATA_FORMAT, 0xC9);
+ // Register 0x2C is BW_Rate (Sampling Rate). See datasheet for more details.
+ // D7 = 0 --> unused
+ // D6 = 0 --> unused
+ // D5 = 0 --> unused
+ // Low_Power = 0 --> Selects standard operation.
+ // Rate = 0111 --> Select 12.5Hz mode.
+ // Result: 00000111 = 0x07
+ writeTo(BW_RATE, 0x07);
  //Put the ADXL345 into Measurement Mode by writing 0x08 to the POWER_CTL register.
  writeTo(POWER_CTL, 0x08);
+
 
  // Serial is solely for debugging.
  Serial.begin(9600);
@@ -83,12 +102,7 @@ void setup()
 void loop()
 {
  readAccel();
- delay(1000); // how quickly do you want to read data?
- // I'm going to publish these variables, and on the Terminal side subscribe to
- // these events
- Particle.publish("XAccel", XAccel);
- Particle.publish("YAccel", YAccel);
- Particle.publish("ZAccel", ZAccel);
+ delay(100); // how quickly do you want to read data?
  // debugging information. Must have micro USB plugged in. Type "particle serial
  // monitor" into Terminal to begin Serial monitor.
  Serial.print("x: ");
