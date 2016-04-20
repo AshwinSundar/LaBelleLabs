@@ -6,24 +6,9 @@
 // Name of Editor: Ashwin Sundar
 // Date of GitHub commit: April 19, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Finished troubleshooting accelerometer. Updated register writes based on
-// what I gleaned from the datasheet. Apparently, the alternate address 0x53 does not work.
-// This could be because of improper grouding, because CS must be connected to ground to use
-// 0x53, but I'm not sure. Instead, I'm using the "main" device address 0x1D, which requires
-// CS to be connected to 3.3V (or HIGH). Due to fluctuations in the 3v3 supply, it actually
-// might be safer to directly connect CS to a digital out pin and set the pin to HIGH. This
-// acts as a more stable voltage source. I will do that in the next revision.
-// ---------
-// As an example, this is valid:
-// Particle.publish("XAccel", myXAccel);
-// But this is not valid:
-// Particle.publish("myXAcceleration", myXAccel);
-// And neither is this:
-// Particle.publish("myXAccel", myXAcceleration);
-// ---------
-// The invalid examples exceed 12 characters either in the variable name published in quotes,
-// or in the actual variable name. These will cause variable requests to mysteriously return
-// 0 variables when you query the cloud for the number of variables available on the device.
+// on GitHub?: Did not connect CS to a digital out, because each digital pin outputs 5V, not 3.3.
+// I could write a 3.3V signal to the digital out line, but this will be a PWM signal, not a
+// 3.3VDC signal. Updated connection schematic below (should have done that in previous edit - woops).
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -38,7 +23,7 @@
 // Photon     <-> ADXL345 Breakout Board
 // Gnd         -  GND
 // 3.3v        -  VCC
-// GND         -  CS
+// 3.3V         -  CS
 // Digital 0   -  SDA
 // Digital 1   -  SCL
 //
@@ -119,7 +104,7 @@ void loop()
  delay(100); // how quickly do you want to read data?
  // debugging information. Must have micro USB plugged in. Type "particle serial
  // monitor" into Terminal to begin Serial monitor.
- Serial.print("x: ");
+ Serial.print(" x: ");
  Serial.print(XAccel);
  Serial.print(" y: ");
  Serial.print(YAccel);
