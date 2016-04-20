@@ -4,11 +4,15 @@
 //// //// //// //// ////
 // Title of File: PhotonDataDump.ino
 // Name of Editor: Ashwin Sundar
-// Date of GitHub commit: April 18, 2016
+// Date of GitHub commit: April 19, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Attempting to troubleshoot accelerometer. Getting all 0's when I connect
-// to Photon over Serial. Also added Particle.publish() functionality so a user can
-// subscribe to events.
+// on GitHub?: Finished troubleshooting accelerometer. Updated register writes based on
+// what I gleaned from the datasheet. Apparently, the alternate address 0x53 does not work.
+// This could be because of improper grouding, because CS must be connected to ground to use
+// 0x53, but I'm not sure. Instead, I'm using the "main" device address 0x1D, which requires
+// CS to be connected to 3.3V (or HIGH). Due to fluctuations in the 3v3 supply, it actually
+// might be safer to directly connect CS to a digital out pin and set the pin to HIGH. This
+// acts as a more stable voltage source. I will do that in the next revision.
 // ---------
 // As an example, this is valid:
 // Particle.publish("XAccel", myXAccel);
@@ -41,7 +45,7 @@
 // All of the addresses specified below are given in the datasheet, available here:
 // http://www.analog.com/media/en/technical-documentation/data-sheets/ADXL345.pdf
 
-#define DEVICE (0x53) // Device address as specified in ADXL345 data sheet. Must
+#define DEVICE (0x1D) // Device address as specified in ADXL345 data sheet. Must
 // connect CS to ground.
 
 byte _buff[6];
@@ -73,6 +77,7 @@ void setup()
 
  Wire.begin(); // join i2c bus (address optional for master)
  // Register 0x31 is Data_Format. See datasheet for more details.
+ // Justification in page 59 of lab notebook 2645 - Ashwin Sundar
  // Self-test = 1 --> Applies a self-test force to the sensor, causing
  // a shift in the data.
  // SPI = 1 --> initialize 3-wire SPI mode.
@@ -84,6 +89,7 @@ void setup()
  // Result: 11001001 = 0xC9
  writeTo(DATA_FORMAT, 0xC9);
  // Register 0x2C is BW_Rate (Sampling Rate). See datasheet for more details.
+ // Justification in page 59 of lab notebook 2645 - Ashwin Sundar
  // D7 = 0 --> unused
  // D6 = 0 --> unused
  // D5 = 0 --> unused
@@ -91,7 +97,15 @@ void setup()
  // Rate = 0111 --> Select 12.5Hz mode.
  // Result: 00000111 = 0x07
  writeTo(BW_RATE, 0x07);
- //Put the ADXL345 into Measurement Mode by writing 0x08 to the POWER_CTL register.
+// Register 0x2D is Power Control. See datasheet for more details.
+// Justification in page 59 of lab notebook 2645 - Ashwin Sundar
+// Link = 0 --> disable activity/inactivity feature
+// Auto_Sleep =  0 --> disable auto sleep when inactivity is detected
+// Measure = 1 --> Enable measurement mode
+// Sleep = 0 --> Keep device in normal operation mode
+// Wakeup = 00 --> In sleep mode, device will make 8 readings per second. I don't
+// think this actually matters for now, since I'm preventing the device from sleeping
+// anyway. I'll use the max of 8 Hz anyway just to be safe.
  writeTo(POWER_CTL, 0x08);
 
 
