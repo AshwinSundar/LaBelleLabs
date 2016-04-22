@@ -4,11 +4,11 @@
 //// //// //// //// ////
 // Title of File: PhotonDataDump.ino
 // Name of Editor: Ashwin Sundar
-// Date of GitHub commit: April 19, 2016
+// Date of GitHub commit: April 21, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Did not connect CS to a digital out, because each digital pin outputs 5V, not 3.3.
-// I could write a 3.3V signal to the digital out line, but this will be a PWM signal, not a
-// 3.3VDC signal. Updated connection schematic below (should have done that in previous edit - woops).
+// on GitHub?: Added timer functionality. Determined the fastest hardware transmit rate, at 230400
+// baud, was ~500 Hz. This corresponds to 500*6 = 3000 characters per second. Higher baud
+// rates did not seem to improve the transmit rate substantially.
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -18,17 +18,30 @@
 // 3) Please compile your code and make sure it is functional BEFORE committing changes to GitHub.
 //// //// //// //// ////
 //// //// //// //// ////
-
+// Particle Photon connections to ADXL335
+// Photon     <-> ADXL335 Breakout Board
+// 3v3         -  Vin
+// 3Vo         -  A3
+// GND         -  GND
+// ZOut        -  A0
+// YOut        -  A1
+// XOut        -  A2
+// Test        -  A3
+//
 // Particle Photon connections to ADXL345
 // Photon     <-> ADXL345 Breakout Board
-// Gnd         -  GND
-// 3.3v        -  VCC
-// 3.3V         -  CS
+// GND         -  GND
+// 3V3         -  VCC
+// 3V3         -  CS
 // Digital 0   -  SDA
 // Digital 1   -  SCL
 //
-// All of the addresses specified below are given in the datasheet, available here:
+// All of the addresses specified in code for the ADXL345 are given in the datasheet,
+// available here:
 // http://www.analog.com/media/en/technical-documentation/data-sheets/ADXL345.pdf
+
+// This #include statement was automatically added by the Particle IDE.
+#include "SparkTime/SparkTime.h"
 
 #define DEVICE (0x1D) // Device address as specified in ADXL345 data sheet. Must
 // connect CS to ground.
@@ -45,9 +58,16 @@ char DATAY1 = 0x35;	// Y-Axis Data 1
 char DATAZ0 = 0x36;	// Z-Axis Data 0
 char DATAZ1 = 0x37;	// Z-Axis Data 1
 
-int XAccel; // x acceleration from the ADXL345
-int YAccel; // y acceleration from the ADXL345
-int ZAccel; // z acceleration from the ADXL345
+// int's in C++ cannot have numbers in their name. Hence the bizarre nomenclature.
+int XAccelA; // x acceleration from the ADXL335
+int YAccelA; // y acceleration from the ADXL335
+int ZAccelA; // z acceleration from the ADXL335
+int VOutA; // 3v0 output of the ADXL335
+//
+int XAccelB; // x acceleration from the ADXL345
+int YAccelB; // y acceleration from the ADXL345
+int ZAccelB; // z acceleration from the ADXL345
+float currentTime;
 
 void setup()
 {
@@ -56,9 +76,15 @@ void setup()
  // the value after the comma. Note: The published variable name in quotes AND the
  // actual variable name MUST be 12 characters or less. Otherwise, the cloud will
  // ignore the variable and you won't be able to see it when you make a request.
- Particle.variable("XAccel", XAccel);
- Particle.variable("YAccel", YAccel);
- Particle.variable("ZAccel", ZAccel);
+ Particle.variable("335XAccel", XAccelA);
+ Particle.variable("335YAccel", YAccelA);
+ Particle.variable("335ZAccel", ZAccelA);
+ Particle.variable("335VOut", VOutA);
+ Particle.variable("345XAccel", XAccelB);
+ Particle.variable("345YAccel", YAccelB);
+ Particle.variable("345ZAccel", ZAccelB);
+ Particle.variable("Time", currentTime);
+
 
  Wire.begin(); // join i2c bus (address optional for master)
  // Register 0x31 is Data_Format. See datasheet for more details.
@@ -95,21 +121,40 @@ void setup()
 
 
  // Serial is solely for debugging.
- Serial.begin(9600);
+ Serial.begin(230400);
 }
 
 void loop()
 {
+ // read the ADXL345 acceleration using Wire.
  readAccel();
- delay(100); // how quickly do you want to read data?
+
+ // read the raw ADXL335 acceleration using analogRead().
+ XAccelA = analogRead(A2);
+ YAccelA = analogRead(A1);
+ ZAccelA = analogRead(A0);
+
+ // determine the reference voltage by querying VOut on A3
+ VOutA = analogRead(A3);
+
  // debugging information. Must have micro USB plugged in. Type "particle serial
  // monitor" into Terminal to begin Serial monitor.
- Serial.print(" x: ");
- Serial.print(XAccel);
- Serial.print(" y: ");
- Serial.print(YAccel);
- Serial.print(" z: ");
- Serial.println(ZAccel);
+ currentTime = micros()/1000000.000;
+ Serial.print(currentTime);
+ Serial.println("s");
+//  Serial.print("335XAccel: ");
+//  Serial.print(XAccelA);
+//  Serial.print(" 335YAccel: ");
+//  Serial.print(YAccelA);
+//  Serial.print(" 335ZAccel: ");
+//  Serial.print(ZAccelA);
+//  Serial.print(" 345XAccel: ");
+//  Serial.print(XAccelB);
+//  Serial.print(" 345YAccel: ");
+//  Serial.print(YAccelB);
+//  Serial.print(" 345ZAccel: ");
+//  Serial.println(ZAccelB);
+
 }
 
 void readAccel() {
@@ -118,9 +163,9 @@ void readAccel() {
 
  // each axis reading comes in 10 bit resolution, ie 2 bytes.  Least Significant Byte first.
  // thus we are converting both bytes into a single int, for each axis.
- XAccel = (((int)_buff[1]) << 8) | _buff[0];
- YAccel = (((int)_buff[3]) << 8) | _buff[2];
- ZAccel = (((int)_buff[5]) << 8) | _buff[4];
+ XAccelB = (((int)_buff[1]) << 8) | _buff[0];
+ YAccelB = (((int)_buff[3]) << 8) | _buff[2];
+ ZAccelB = (((int)_buff[5]) << 8) | _buff[4];
 }
 
 void writeTo(byte address, byte val) {
