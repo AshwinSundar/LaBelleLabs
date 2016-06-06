@@ -4,9 +4,16 @@
 //// //// //// //// ////
 // Title of File: PhotonDataDump.ino
 // Name of Editor: Ashwin Sundar
-// Date of GitHub commit: June 1, 2016
+// Date of GitHub commit: June 6, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Added some code to read thermistor voltage divider circuit, convert to Celsius
+// on GitHub?: Determined how to use Particle.publish() to achieve high-speed transmission.
+// Basically, I'm saving data in bulk, and transmitting it once I hit the buffer limit of
+// 255 bytes. Particle.publish() limits me to 3 such transmissions per second. If I attempt
+// 4 for 2 consecutive seconds, the Photon will impose a cooldown of 4 sceonds before I 
+// can publish more data. I've experimented with the temperature data, and it works. So
+// I can just apply the code to the EKG data. I need to condense the EKG data as much as 
+// possible before transmission if I want to achieve high throughput. Otherwise the data
+// stream will start to lag. We could experiment with lagging data streams as well. 
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -27,6 +34,7 @@
 // Test        -  A3
 
 #include <math.h>
+#include <Particle.h>
 
 // int's in C++ cannot have numbers in their name. Hence the bizarre nomenclature. 
 int XAccel; // x acceleration from the ADXL335
@@ -38,6 +46,7 @@ double thermistorAnalog; // contains raw analog data from thermistor circuit VOu
 double thermistorResistance; // converts analog reading to resistance
 double temperature; // converts thermistor resistance to temperature, according to Amphenol datasheet 
 int EKG; // analog reading of EKG
+String tempData = "0"; // stores temperature data as a large block
 
 void setup()
 {
@@ -53,7 +62,7 @@ void setup()
  Particle.variable("ZAccel", ZAccel);
  Particle.variable("VOut", VOut);
  Particle.variable("EKG", EKG);
- Particle.variable("temp", temperature); // publishes temperature in Celsius
+ Particle.variable("temp", temperature); // temp in Celsius
 }
 
 void loop()
@@ -71,6 +80,16 @@ void loop()
  thermistorResistance = (10000*thermistorAnalog/4096)/(1-thermistorAnalog/4096);
  // calculated temperature by plotting a line of best fit using linear algebra and MATLAB. Error was found to be 3.7998*10^-4 Kelvins using Igor Pro. 
  temperature = pow((1.1106*.001 + 2.3724*.0001*log(thermistorResistance) + 7.4738*.00000001*pow(log(thermistorResistance), 3)), -1) - 273.15;
+ 
+ tempData += ",";
+ tempData += String(floor(temperature*100 + 0.5)/100).remove(5,6); // rounds the temperature to 2 decimals, truncates last 6 elements (trailing zeroes)
+ delay(333/40);
+ 
+ if (tempData.length() > 240) // Once the chunk reaches 40 data points, send it. Max 255 bytes (or 255*3 = 765 bytes per second)  
+ {
+    Particle.publish("Temps", String(tempData));
+    tempData = "";
+ }
  
  // read the EKG, connected to A4 of the Photon. 
  EKG = analogRead(A4);
