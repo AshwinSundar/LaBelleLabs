@@ -4,16 +4,10 @@
 //// //// //// //// ////
 // Title of File: PhotonDataDump.ino
 // Name of Editor: Ashwin Sundar
-// Date of GitHub commit: June 6, 2016
+// Date of GitHub commit: June 8, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Determined how to use Particle.publish() to achieve high-speed transmission.
-// Basically, I'm saving data in bulk, and transmitting it once I hit the buffer limit of
-// 255 bytes. Particle.publish() limits me to 3 such transmissions per second. If I attempt
-// 4 for 2 consecutive seconds, the Photon will impose a cooldown of 4 sceonds before I 
-// can publish more data. I've experimented with the temperature data, and it works. So
-// I can just apply the code to the EKG data. I need to condense the EKG data as much as 
-// possible before transmission if I want to achieve high throughput. Otherwise the data
-// stream will start to lag. We could experiment with lagging data streams as well. 
+// on GitHub?: Reduced number of mathematical operations performed in code. This reduces 
+// floating point error, since the binary representation of each number is not exact. 
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -72,23 +66,32 @@ void loop()
  YAccel = analogRead(A1);
  ZAccel = analogRead(A0);
  
- // determine the reference voltage by querying VOut on A3
- VOut = analogRead(A3);
+ VOut = analogRead(A3);  // determine the reference voltage by querying VOut on A3
+ thermistorAnalog = analogRead(A5); // read the raw thermistor analog data
  
- // read the raw thermistor analog data
- thermistorAnalog = analogRead(A5);
- thermistorResistance = (10000*thermistorAnalog/4096)/(1-thermistorAnalog/4096);
- // calculated temperature by plotting a line of best fit using linear algebra and MATLAB. Error was found to be 3.7998*10^-4 Kelvins using Igor Pro. 
- temperature = pow((1.1106*.001 + 2.3724*.0001*log(thermistorResistance) + 7.4738*.00000001*pow(log(thermistorResistance), 3)), -1) - 273.15;
+ // convert resistance to ohms using voltage divider equation, where R1 = 10k ohms
+ // shielded equation from dividing by zero
+ if (thermistorAnalog < 4095)
+ {
+    thermistorResistance = (10000*thermistorAnalog/4095)/(1-thermistorAnalog/4095);
+ }
+ 
+ else if (thermistorAnalog >= 4095) // if the analog reads 4095, then there is a short or the thermistor has failed.
+{
+    thermistorResistance = 0; 
+}
+ // calculated temperature by plotting a line of best fit using linear algebra and MATLAB. Error was found to be 3.7998*10^-4 Kelvins 
+ // using Igor Pro. Compressed some of the math operations to reduce floating point error. 
+ temperature = pow((.0011106 + 0.00023724*log(thermistorResistance) + 0.000000074738*pow(log(thermistorResistance), 3)), -1) - 273.15;
  
  tempData += ",";
  tempData += String(floor(temperature*100 + 0.5)/100).remove(5,6); // rounds the temperature to 2 decimals, truncates last 6 elements (trailing zeroes)
  delay(333/40);
  
- if (tempData.length() > 240) // Once the chunk reaches 40 data points, send it. Max 255 bytes (or 255*3 = 765 bytes per second)  
+ if (tempData.length() >= 210) // Once the chunk reaches 30 data points, send it. Max 255 bytes (or 255*3 = 765 bytes per second)  
  {
-    Particle.publish("Temps", String(tempData));
-    tempData = "";
+    Particle.publish("Temps1", String(tempData)); // Particle.publish only accepts chars or strings
+    tempData = ""; // erase the temperatures, start anew
  }
  
  // read the EKG, connected to A4 of the Photon. 
