@@ -4,10 +4,9 @@
 //// //// //// //// ////
 // Title of File: PhotonDataDump.ino
 // Name of Editor: Ashwin Sundar
-// Date of GitHub commit: June 9, 2016
+// Date of GitHub commit: June 13, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Wrote EKG collection function. Moved temperature collection into its own
-// function. Experimented with sampling rates. 
+// on GitHub?: Wrote acceleration collection function.  
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -30,52 +29,32 @@
 #include <math.h>
 #include <Particle.h>
 
-// int's in C++ cannot have numbers in their name. Hence the bizarre nomenclature. 
-int XAccel; // x acceleration from the ADXL335
-int YAccel; // y acceleration from the ADXL335
-int ZAccel; // z acceleration from the ADXL335
-int VOut; // voltage output of the ADXL335
-//
+// note: ints in C++ cannot have numbers in their name.
 double thermistorAnalog; // contains raw analog data from thermistor circuit VOut
 double thermistorResistance; // converts analog reading to resistance
 double temperature; // converts thermistor resistance to temperature, according to Amphenol datasheet 
+String accelData; // ADXL335 acceleration magnitude data points
 int EKG; // analog reading of EKG
 int lastTempCheck = 0;
 int lastEKGCheck = 0; 
+int lastAccelCheck = 0;
 String EKGData; // collection of EKG points, to be published in bulk
 
 void setup()
 {
 
-    // Let's register some Particle variables to the Particle cloud.
-    // This means when we "ask" the Particle cloud for the string in quotes, we will get
-    // the value after the comma. Note: The published variable name in quotes AND the
-    // actual variable name MUST be 12 characters or less. Otherwise, the cloud will
-    // ignore the variable and you won't be able to see it when you make a request.
-
-    Particle.variable("XAccel", XAccel);
-    Particle.variable("YAccel", YAccel);
-    Particle.variable("ZAccel", ZAccel);
-    Particle.variable("VOut", VOut);
-    Particle.variable("EKG", EKG);
-    Particle.variable("temp", temperature); // temp in Celsius
 }
 
 void loop()
 {
-    // read the raw ADXL335 acceleration using analogRead().
-    XAccel = analogRead(A2);
-    YAccel = analogRead(A1);
-    ZAccel = analogRead(A0);
-    VOut = analogRead(A3);  // determine the reference voltage by querying VOut on A3
- 
     checkTemp();
     checkEKG();
+    checkAccel();
 }
 
 void checkTemp()
 {
-    if ((millis() - lastTempCheck) > 1000) // reads temperature once per second. 
+    if ((millis() - lastTempCheck) > 1000) // 1 Hz sampling rate for temperature
     {
         thermistorAnalog = analogRead(A5); // read the raw thermistor analog data
  
@@ -95,7 +74,7 @@ void checkTemp()
         temperature = pow((.0011106 + 0.00023724*log(thermistorResistance) + 0.000000074738*pow(log(thermistorResistance), 3)), -1) - 273.15;
         // rounds the temperature to 2 decimals, truncates last 6 elements (trailing zeroes))
         // Particle.publish only accepts chars or strings
-        Particle.publish("newTemp", String(floor(temperature*100 + 0.5)/100).remove(5,6)); 
+        Particle.publish("newTemp", String(floor(temperature*100 + 0.5)/100).remove(5)); 
 
         // resets the "timer"
         lastTempCheck = floor(millis()/1000)*1000; // rounds down temp check time to 1 second
@@ -105,7 +84,7 @@ void checkTemp()
 
 void checkEKG()
 {
-    if ((millis() - lastEKGCheck) >= 10)
+    if ((millis() - lastEKGCheck) >= 10) // 100 Hz sampling rate for EKG
     {
         EKG = analogRead(A4); // read the EKG, connected to A4 of the Photon. 
         EKGData += String(EKG); 
@@ -120,4 +99,21 @@ void checkEKG()
         lastEKGCheck = floor(millis()/10)*10; // rounds down EKG check time to 10 milliseconds. 
     }
     
+}
+
+void checkAccel()
+{
+    if ((millis() - lastAccelCheck >=  200)) // 5 Hz sampling rate for acceleration
+    {
+        // X, Y, and Z are directly wired to A2, A1, and A0 respectively. Rounds data, truncates trailing zeros and decimal. 
+        accelData += String(floor(sqrt(pow(analogRead(A0),2) + pow(analogRead(A1),2) + pow(analogRead(A2),2)) + 0.5)).remove(4); 
+        accelData += ",";
+        if (accelData.length() > 240)
+        {
+            Particle.publish("Acceleration", accelData);
+            accelData = ""; // erases the acceleration data buffer, starts over
+        }
+        
+        lastAccelCheck = floor(millis()/200)*200; // rounds down accel check to 200 milliseconds. 
+    }
 }
