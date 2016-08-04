@@ -4,11 +4,9 @@
 //// //// //// //// ////
 // Title of File: PhotonDataDump.ino
 // Name of Editor: Ashwin Sundar
-// Date of GitHub commit: July 6, 2016
+// Date of GitHub commit: August 4, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Added SD card functionality. First, I confirmed I was able to write temperature
-// data to a file. Then, I implemented the functionality with the checkAccel and checkEKG 
-// functions. 
+// on GitHub?: Commented out .publish()'s, turned off WiFi for power testing. 
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -102,6 +100,10 @@ Timer AccelTimer(200, checkAccel); // creates timer that checks acceleration eve
     
 void setup()
 {
+    WiFi.off();
+    RGB.control(true);
+    RGB.color(0,2,0); // to confirm that WiFi is off
+    pinMode(D7, OUTPUT);
     Particle.syncTime(); // syncs time to correct time zone
     EKGTimer.start(); // by default, timers are stopped. start them. 
     TempTimer.start();
@@ -189,7 +191,9 @@ void checkTemp()
     globalTemp.print(", ");
     globalTemp.print(String(floor(temperature*100 + 0.5)/100).remove(5)); // writes temp
     globalTemp.println("; ");
-    Particle.publish("newTemp", String(floor(temperature*100 + 0.5)/100).remove(5)); 
+    
+    // commented out until we find a WiFi solution
+    // Particle.publish("newTemp", String(floor(temperature*100 + 0.5)/100).remove(5)); 
     
     globalTemp.close();
 }
@@ -205,11 +209,12 @@ void checkEKG()
     EKGData += String(EKG); 
     EKGData += ",";
     
-    if (EKGData.length() > 250)
-    {
-        Particle.publish("EKG", EKGData);
-        EKGData = ""; // erases the EKG data buffer, starts over
-    }
+    // commented out until we find a WiFi solution    
+    // if (EKGData.length() > 250)
+    // {
+    //     Particle.publish("EKG", EKGData);
+    //     EKGData = ""; // erases the EKG data buffer, starts over
+    // }
     
     // Serial.print("Writing to globalEKG.txt..."); // serial debug
     globalEKG.print(Time.year()); // prints formatted time
@@ -245,11 +250,12 @@ void checkAccel()
     accelData += accel; 
     accelData += ",";
     
-    if (accelData.length() > 250)
-    {
-        Particle.publish("Acceleration", accelData);
-        accelData = ""; // erases the acceleration data buffer, starts over
-    }
+    // commented out until we find a WiFi solution
+    // if (accelData.length() > 250)
+    // {
+    //     Particle.publish("Acceleration", accelData);
+    //     accelData = ""; // erases the acceleration data buffer, starts over
+    // }
     
     // Serial.print("Writing to globalAccel.txt..."); // serial debug
     globalAccel.print(Time.year()); // prints formatted time
