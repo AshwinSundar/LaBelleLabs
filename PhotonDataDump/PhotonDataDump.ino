@@ -4,12 +4,15 @@
 //// //// //// //// ////
 // Title of File: PhotonDataDump.ino
 // Name of Editor: Ashwin Sundar
-// Date of GitHub commit: August 10, 2016
+// Date of GitHub commit: August 11, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Fully rewrote the code from scratch, unit testing along the way. I'm doing
-// this because I can't figure out what's wrong with the July 6 code that is creating. Unit
-// testing the writeToSD() function tonight.
-// strange hardware faults and SD errors. 
+// on GitHub?: Last night's testing revealed that Professor Spano's comments are correct -
+// the SD write function is slowing down over time. It started at about 6 ms per write, 
+// and over the course of one night increased to 15 ms per write. This means that my write
+// of >100 per second were overflowing some sort of buffer, causing SD card failures. 
+// I'll test this hypothesis again by writing to the SD card, but also including a 50
+// ms delay between each write. This should be more than enough time for the SD card to
+// "catch up."
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -86,10 +89,10 @@ double stop;
 File testFile; 
 void setup()
 {
-    Particle.connect();
+    // Particle.connect();
     Serial.begin(115200);
-    // RGB.control(true);
-    // RGB.color(255, 255, 0);
+    RGB.control(true);
+    RGB.color(255, 255, 0);
     // Initialize SdFat or print a detailed error message and halt
     // Use half speed like the native library.
     // Change to SPI_FULL_SPEED for better performance.
@@ -102,14 +105,14 @@ void setup()
     // prepare files for writing. O_RDWR enables read-write, O_CREAT makes a new file
     // if there isn't already a file with the name in quotes, O_AT_END adds new data
     // to the end of the file instead of overwriting the contents. 
-    if (testFile.open("testFile.txt", O_RDWR | O_CREAT | O_AT_END)) 
+    if (testFile.open("testFile2.txt", O_RDWR | O_CREAT | O_AT_END)) 
     {
-        Serial.print("testFile.txt opened successfully.");
+        Serial.print("testFile2.txt opened successfully.");
     }
     
     else 
     { 
-        Serial.print("setup(): opening testFile.txt for 0_RDWR | 0_CREAT | 0_AT_END.");
+        Serial.print("setup(): opening testFile2.txt for 0_RDWR | 0_CREAT | 0_AT_END.");
     }
 
     testFile.close(); 
@@ -128,9 +131,9 @@ void loop()
 
 void writeToFile() {
     start = micros();
-    if (testFile.open("testFile.txt", O_RDWR | O_AT_END)) 
+    if (testFile.open("testFile2.txt", O_RDWR | O_AT_END)) 
     {
-        Serial.print("Opening testFile.txt succeeded. "); // debug info
+        Serial.print("Opening testFile2.txt succeeded. "); // debug info
         testFile.print("gibberish");
         stop = micros();
         Serial.print("Time to execute open and print: " );
@@ -144,6 +147,7 @@ void writeToFile() {
         
     }
     
+    delay(100);
     testFile.close();
 }
 
