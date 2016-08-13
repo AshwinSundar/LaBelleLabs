@@ -4,15 +4,12 @@
 //// //// //// //// ////
 // Title of File: PhotonDataDump.ino
 // Name of Editor: Ashwin Sundar
-// Date of GitHub commit: August 11, 2016
+// Date of GitHub commit: August 12, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Last night's testing revealed that Professor Spano's comments are correct -
-// the SD write function is slowing down over time. It started at about 6 ms per write, 
-// and over the course of one night increased to 15 ms per write. This means that my write
-// of >100 per second were overflowing some sort of buffer, causing SD card failures. 
-// I'll test this hypothesis again by writing to the SD card, but also including a 50
-// ms delay between each write. This should be more than enough time for the SD card to
-// "catch up."
+// on GitHub?: The second round of SD testing confirmed my guess - the larger the file, the
+// longer it takes to write to the file. I started at 5.96 ms per write, ended at 8.29 ms
+// after about 18 hours of continuous writes spaced by 100ms. Now, I'm going to create a 
+// Cloud uptime test. I want to see how much uptime I have on each Photon. 
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -34,7 +31,7 @@
 //// //// //// //// ////
 //// //// //// //// ////
 // Particle Photon connections to microSD breakout board
-// Photon     <->   ADXL335 Breakout Board
+// Photon     <->   microSD board
 // N/A         -    CD
 // D3          -    D0
 // GND         -    GND
@@ -45,110 +42,31 @@
 //// //// //// //// ////
 //// //// //// //// ////
 
-// This #include statement was automatically added by the Particle IDE.
-#include "SdFat/SdFat.h"
-#include "math.h"
-
-//// //// //// //// ////
-//// microSD config ////
-// Pick an SPI configuration.
-// See SPI configuration section below (comments are for photon).
-#define SPI_CONFIGURATION 1
-//// //// //// //// ////
-// Setup SPI configuration.
-#if SPI_CONFIGURATION == 0
-// Primary SPI with DMA
-// SCK => A3, MISO => A4, MOSI => A5, SS => A2 (default)
-SdFat sd;
-const uint8_t chipSelect = SS;
-#elif SPI_CONFIGURATION == 1
-// Secondary SPI with DMA
-// SCK => D4, MISO => D3, MOSI => D2, SS => D1
-SdFat sd(1);
-const uint8_t chipSelect = D1;
-#elif SPI_CONFIGURATION == 2
-// Primary SPI with Arduino SPI library style byte I/O.
-// SCK => A3, MISO => A4, MOSI => A5, SS => A2 (default)
-SdFatLibSpi sd;
-const uint8_t chipSelect = SS;
-#elif SPI_CONFIGURATION == 3
-// Software SPI.  Use any digital pins.
-// MISO => D5, MOSI => D6, SCK => D7, SS => D0
-SdFatSoftSpi<D5, D6, D7> sd;
-const uint8_t chipSelect = D0;
-#endif  // SPI_CONFIGURATION
-//// //// //// //// ////
-//// //// //// //// ////
 SYSTEM_MODE(SEMI_AUTOMATIC); // allows Photon code to execute without being connected
 // to a WiFi network. You must manually call Particle.connect(). In AUTOMATIC mode, 
 // Particle.connect() is automatically called before any code is executed, and the 
 // device waits to be connected to WiFi before executing any of your code. 
 
-double start;
-double stop;
-File testFile; 
-void setup()
-{
-    // Particle.connect();
+Timer WiFiTimer(1000, checkCloud);
+
+void setup() {
+    Particle.connect(); // must manually called Particle.connect() if system_mode is 
+    // semi_automatic
     Serial.begin(115200);
-    RGB.control(true);
-    RGB.color(255, 255, 0);
-    // Initialize SdFat or print a detailed error message and halt
-    // Use half speed like the native library.
-    // Change to SPI_FULL_SPEED for better performance.
-    start = micros();
-    if (!sd.begin(chipSelect, SPI_FULL_SPEED)) 
-    {
-        sd.initErrorHalt();
-    }
-    
-    // prepare files for writing. O_RDWR enables read-write, O_CREAT makes a new file
-    // if there isn't already a file with the name in quotes, O_AT_END adds new data
-    // to the end of the file instead of overwriting the contents. 
-    if (testFile.open("testFile2.txt", O_RDWR | O_CREAT | O_AT_END)) 
-    {
-        Serial.print("testFile2.txt opened successfully.");
-    }
-    
-    else 
-    { 
-        Serial.print("setup(): opening testFile2.txt for 0_RDWR | 0_CREAT | 0_AT_END.");
-    }
-
-    testFile.close(); 
-    
-    stop = micros(); 
-    
-    Serial.print("Time to execute setup(): " );
-    Serial.print((stop - start)/1000);
-    Serial.print(" milliseconds; ");
+    WiFiTimer.start();
 }
 
-void loop()
-{
-    writeToFile();
+void loop() {
+    
+
 }
 
-void writeToFile() {
-    start = micros();
-    if (testFile.open("testFile2.txt", O_RDWR | O_AT_END)) 
-    {
-        Serial.print("Opening testFile2.txt succeeded. "); // debug info
-        testFile.print("gibberish");
-        stop = micros();
-        Serial.print("Time to execute open and print: " );
-        Serial.print((stop - start)/1000); 
-        Serial.println(" milliseconds;");
-    }
-    
-    else
-    { 
-        Serial.print("writeToFile(): opening testFile.txt for 0_RDWR | 0_AT_END failed. ");
-        
-    }
-    
-    delay(100);
-    testFile.close();
+void checkCloud() {
+    Serial.print(millis()/1000); // prints time
+    Serial.print(" ");
+    Serial.print(Particle.connected()); // if Photon is connected to Cloud, returns 1. 
+    Serial.println(";");
+   
 }
 
 
