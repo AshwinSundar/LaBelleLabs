@@ -7,13 +7,12 @@
 //// //// //// //// ////
 // Title of File: PhotonDataDump.ino
 // Name of Editor: Ashwin Sundar
-// Date of GitHub commit: August 15, 2016
+// Date of GitHub commit: August 17, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
 // on GitHub?: I want to implement the changes informed by the testing last week. First, I
 // will write bulk data to the card. Second, I will partition the data into files no larger
-// than 1MB each. Finally, in the event of a write error, I will have the Photon flash the 
-// main LED yellow and red. Could not get these functions up and running today. Will try 
-// again tomorrow. 
+// than 1MB each. I am not going to worry about making a status LED yet. I just want to 
+// implement the above two concepts and run an overnight test. 
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -82,22 +81,17 @@ SYSTEM_MODE(SEMI_AUTOMATIC); // allows Photon code to execute without being conn
 // device waits to be connected to WiFi before executing any of your code. 
 
 Timer WiFiTimer(1000, checkCloud);
-// Timer SDStatus(5000, checkSDStatus);
 Timer WriteTimer(250, writeBulkData);
-File testFile; 
-int cardDetect = D6; 
+FatFile testFile; 
+String mockData = "gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish ";
+int cardDetect = D6; // determines if a card is inserted or not. Doesn't work reliably. 
 bool flag; // flag checks whether certain events were successful or not
-
-// mock data is 250 chars long. Writing 4 times a second is 1000 chars per second. 
-String mockData = "gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish ";
 
 void setup() {
     Particle.connect(); // must manually call Particle.connect() if system_mode is 
     // semi_automatic
     Serial.begin(115200); // debugging purposes
-    // SDStatus.start();
-    // pinMode(cardDetect, INPUT);
-    pinMode(D7, OUTPUT);
+    sd.begin();
     
     // Test: Open a file. 
     flag = testFile.open("testFile.txt", O_RDWR | O_CREAT | O_AT_END);
@@ -141,7 +135,6 @@ void checkCloud() {
 void writeBulkData() {
     
     // Test: Open a file. 
-    
     flag = testFile.open("testFile.txt", O_RDWR | O_AT_END);
     Serial.println(flag);
     if (flag == 0) {
@@ -154,7 +147,7 @@ void writeBulkData() {
         digitalWrite(D7, LOW);
     }
 
-    testFile.print(mockData);
+    testFile.write(mockData);
     
     // Test: Close a file.
     flag = testFile.close();
@@ -167,6 +160,8 @@ void writeBulkData() {
         Serial.println("WRITEBULKDATA(): testFile.txt closed successfully.");
         digitalWrite(D7, LOW);
     }
+    
+    sd.errorPrint();
 }
 
 // doesn't really work that well. 
