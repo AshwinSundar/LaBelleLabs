@@ -1,18 +1,23 @@
-// This #include statement was automatically added by the Particle IDE.
-#include "SdFat/SdFat.h"
+// #pragma SPARK_NO_PREPROCESSOR
+// #include "application.h"
+// #include "Particle.h"
 
 //// //// //// //// ////
 // Please read - the following section MUST be completed BEFORE attempting to commit
-// changes to GitHub.
 //// //// //// //// ////
 // Title of File: PhotonDataDump.ino
 // Name of Editor: Ashwin Sundar
-// Date of GitHub commit: August 17, 2016
+// Date of GitHub commit: August 19, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: I want to implement the changes informed by the testing last week. First, I
-// will write bulk data to the card. Second, I will partition the data into files no larger
-// than 1MB each. I am not going to worry about making a status LED yet. I just want to 
-// implement the above two concepts and run an overnight test. 
+// on GitHub?: Continuing to debug SD errors. I finally figured out the bulk of my issues.
+// I was not initializing the sd card correctly. I was just doing sd.begin(), but I actually
+// need to specify the chip select pin and SPI speed at initalization. So I wrote
+// sd.begin(chipSelect, SPI_FULL_SPEED). I could have also chose SPI_HALF_SPEED, but I 
+// chose FULL_SPEED for maximium performance. Now, I really need to find a way to physically
+// indicate that the SD card is performing correctly. I tried writing a custom SD class,
+// but the preprocessor gave me issues. Disabling the preprocessor created more issues,
+// so I made an edit to SdFat and submitted a pull request to the author on GitHub. 
+// It was approved over the weekend, will try the new SdFat out. 
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -80,49 +85,10 @@ SYSTEM_MODE(SEMI_AUTOMATIC); // allows Photon code to execute without being conn
 // Particle.connect() is automatically called before any code is executed, and the 
 // device waits to be connected to WiFi before executing any of your code. 
 
-Timer WiFiTimer(1000, checkCloud);
-Timer WriteTimer(250, writeBulkData);
 FatFile testFile; 
 String mockData = "gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish ";
 int cardDetect = D6; // determines if a card is inserted or not. Doesn't work reliably. 
 bool flag; // flag checks whether certain events were successful or not
-
-void setup() {
-    Particle.connect(); // must manually call Particle.connect() if system_mode is 
-    // semi_automatic
-    Serial.begin(115200); // debugging purposes
-    sd.begin();
-    
-    // Test: Open a file. 
-    flag = testFile.open("testFile.txt", O_RDWR | O_CREAT | O_AT_END);
-    if (!flag) {
-        Serial.println("SETUP(): testFile.txt O_RDWR | 0_CREAT | O_AT_END failed");
-        digitalWrite(D7, HIGH);
-    }
-    
-    if (flag) {
-        Serial.println("SETUP(): testFile.txt opened successfully.");
-        digitalWrite(D7, LOW);
-    }
-
-    // Test: Close a file.
-    flag = testFile.close();
-    if (!flag) {
-        Serial.println("SETUP(): testFile.txt failed to close.");
-        digitalWrite(D7, HIGH);
-    }
-    
-    if (flag) {
-        Serial.println("SETUP(): testFile.txt closed successfully.");
-        digitalWrite(D7, LOW);
-    }
-    
-    WriteTimer.start();
-}
-
-void loop() {
-
-}
 
 void checkCloud() {
     Serial.print(millis()/1000); // prints time
@@ -162,7 +128,50 @@ void writeBulkData() {
     }
     
     sd.errorPrint();
+    sd.cardErrorCode();
 }
+
+
+Timer WiFiTimer(1000, checkCloud);
+Timer WriteTimer(250, writeBulkData);
+
+void setup() {
+    Particle.connect(); // must manually call Particle.connect() if system_mode is 
+    // semi_automatic
+    Serial.begin(115200); // debugging purposes
+    sd.begin(chipSelect, SPI_FULL_SPEED); // init at full speed for best performance
+    
+    // Test: Open a file. 
+    flag = testFile.open("testFile.txt", O_RDWR | O_CREAT | O_AT_END);
+    if (!flag) {
+        Serial.println("SETUP(): testFile.txt O_RDWR | 0_CREAT | O_AT_END failed");
+        digitalWrite(D7, HIGH);
+    }
+    
+    if (flag) {
+        Serial.println("SETUP(): testFile.txt opened successfully.");
+        digitalWrite(D7, LOW);
+    }
+
+    // Test: Close a file.
+    flag = testFile.close();
+    if (!flag) {
+        Serial.println("SETUP(): testFile.txt failed to close.");
+        digitalWrite(D7, HIGH);
+    }
+    
+    if (flag) {
+        Serial.println("SETUP(): testFile.txt closed successfully.");
+        digitalWrite(D7, LOW);
+    }
+    
+    WriteTimer.start();
+}
+
+void loop() {
+
+}
+
 
 // doesn't really work that well. 
 // void checkSDStatus() {
