@@ -1,23 +1,18 @@
-// #pragma SPARK_NO_PREPROCESSOR
-// #include "application.h"
-// #include "Particle.h"
+// This #include statement was automatically added by the Particle IDE.
+#include "SdFat/SdFat.h"
 
 //// //// //// //// ////
 // Please read - the following section MUST be completed BEFORE attempting to commit
 //// //// //// //// ////
 // Title of File: PhotonDataDump.ino
 // Name of Editor: Ashwin Sundar
-// Date of GitHub commit: August 19, 2016
+// Date of GitHub commit: August 23, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Continuing to debug SD errors. I finally figured out the bulk of my issues.
-// I was not initializing the sd card correctly. I was just doing sd.begin(), but I actually
-// need to specify the chip select pin and SPI speed at initalization. So I wrote
-// sd.begin(chipSelect, SPI_FULL_SPEED). I could have also chose SPI_HALF_SPEED, but I 
-// chose FULL_SPEED for maximium performance. Now, I really need to find a way to physically
-// indicate that the SD card is performing correctly. I tried writing a custom SD class,
-// but the preprocessor gave me issues. Disabling the preprocessor created more issues,
-// so I made an edit to SdFat and submitted a pull request to the author on GitHub. 
-// It was approved over the weekend, will try the new SdFat out. 
+// on GitHub?: I asked Bill to reimport SdFat, and he said the Particle IDE should rescan
+// GitHub automatically soon and it will update. While I'm waiting for that to happen,
+// I'm going to run a pair of SD performance tests. 
+// Test 1 (current): I will write "bulk" data every 100ms and observe the time to write over a course of 3 hours. 
+// Test 2: Add file partioning. 
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -89,6 +84,8 @@ FatFile testFile;
 String mockData = "gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish ";
 int cardDetect = D6; // determines if a card is inserted or not. Doesn't work reliably. 
 bool flag; // flag checks whether certain events were successful or not
+double start;
+double stop;
 
 void checkCloud() {
     Serial.print(millis()/1000); // prints time
@@ -112,8 +109,14 @@ void writeBulkData() {
         Serial.println("WRITEBULKDATA(): testFile.txt opened successfully.");
         digitalWrite(D7, LOW);
     }
-
+    
+    // SD Performance Test
+    start = micros(); 
     testFile.write(mockData);
+    stop = micros(); 
+    Serial.print("Write Time: ");
+    Serial.print((stop-start)/1000);
+    Serial.println(" ms");
     
     // Test: Close a file.
     flag = testFile.close();
@@ -127,13 +130,13 @@ void writeBulkData() {
         digitalWrite(D7, LOW);
     }
     
-    sd.errorPrint();
-    sd.cardErrorCode();
+    // sd.errorPrint(); // these are currently private functions. waiting for Particle to rescan GitHub
+    // sd.cardErrorCode();
 }
 
 
 Timer WiFiTimer(1000, checkCloud);
-Timer WriteTimer(250, writeBulkData);
+Timer WriteTimer(100, writeBulkData);
 
 void setup() {
     Particle.connect(); // must manually call Particle.connect() if system_mode is 
@@ -168,7 +171,7 @@ void setup() {
     WriteTimer.start();
 }
 
-void loop() {
+void loop() { 
 
 }
 
