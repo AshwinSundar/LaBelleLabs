@@ -82,10 +82,13 @@ SYSTEM_MODE(SEMI_AUTOMATIC); // allows Photon code to execute without being conn
 
 FatFile testFile; 
 String mockData = "gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish ";
+String fileName;
 int cardDetect = D6; // determines if a card is inserted or not. Doesn't work reliably. 
 bool flag; // flag checks whether certain events were successful or not
 double start;
 double stop;
+int currentFileSize; 
+int fileTracker = 1; 
 
 void checkCloud() {
     Serial.print(millis()/1000); // prints time
@@ -98,15 +101,15 @@ void checkCloud() {
 void writeBulkData() {
     
     // Test: Open a file. 
-    flag = testFile.open("testFile.txt", O_RDWR | O_AT_END);
+    flag = testFile.open(fileName, O_RDWR | O_CREAT | O_AT_END);
     Serial.println(flag);
     if (flag == 0) {
-        Serial.println("WRITEBULKDATA(): testFile.txt O_RDWR | 0_CREAT | O_AT_END failed.");
+        Serial.println("WRITEBULKDATA(): " + fileName + " O_RDWR | 0_CREAT | O_AT_END failed.");
         digitalWrite(D7, HIGH);
     }
     
     if (flag == 1) {
-        Serial.println("WRITEBULKDATA(): testFile.txt opened successfully.");
+        Serial.println("WRITEBULKDATA(): " + fileName + " opened successfully.");
         digitalWrite(D7, LOW);
     }
     
@@ -121,12 +124,12 @@ void writeBulkData() {
     // Test: Close a file.
     flag = testFile.close();
     if (flag == 0) {
-        Serial.println("WRITEBULKDATA(): testFile.txt failed to close.");
+        Serial.println("WRITEBULKDATA(): " + fileName + " failed to close.");
         digitalWrite(D7, HIGH);
     }
     
     if (flag == 1) {
-        Serial.println("WRITEBULKDATA(): testFile.txt closed successfully.");
+        Serial.println("WRITEBULKDATA(): " + fileName + " closed successfully.");
         digitalWrite(D7, LOW);
     }
     
@@ -134,47 +137,22 @@ void writeBulkData() {
     // sd.cardErrorCode();
 }
 
-
-Timer WiFiTimer(1000, checkCloud);
-Timer WriteTimer(100, writeBulkData);
-
-void setup() {
-    Particle.connect(); // must manually call Particle.connect() if system_mode is 
-    // semi_automatic
-    Serial.begin(115200); // debugging purposes
-    sd.begin(chipSelect, SPI_FULL_SPEED); // init at full speed for best performance
+bool checkFileSize() {
+    Serial.print("File Size: ");
+    currentFileSize = (testFile.fileSize());
+    Serial.println(currentFileSize);
     
-    // Test: Open a file. 
-    flag = testFile.open("testFile.txt", O_RDWR | O_CREAT | O_AT_END);
-    if (!flag) {
-        Serial.println("SETUP(): testFile.txt O_RDWR | 0_CREAT | O_AT_END failed");
-        digitalWrite(D7, HIGH);
+    if (testFile.fileSize() > 1000000) // 1 MB
+    {
+        fileTracker++; // move to the next file
+        fileName = "testFile" + String(fileTracker) + ".txt";
+        return TRUE;
     }
     
-    if (flag) {
-        Serial.println("SETUP(): testFile.txt opened successfully.");
-        digitalWrite(D7, LOW);
+    else {
+        return FALSE; 
     }
-
-    // Test: Close a file.
-    flag = testFile.close();
-    if (!flag) {
-        Serial.println("SETUP(): testFile.txt failed to close.");
-        digitalWrite(D7, HIGH);
-    }
-    
-    if (flag) {
-        Serial.println("SETUP(): testFile.txt closed successfully.");
-        digitalWrite(D7, LOW);
-    }
-    
-    WriteTimer.start();
 }
-
-void loop() { 
-
-}
-
 
 // doesn't really work that well. 
 // void checkSDStatus() {
@@ -189,5 +167,45 @@ void loop() {
 //         digitalWrite(D7, LOW);
 //     }
 
+Timer WiFiTimer(1000, checkCloud);
+Timer WriteTimer(100, writeBulkData);
+Timer FileSizeTimer(5000, checkFileSize);
 
+void setup() {
+    Particle.connect(); // must manually call Particle.connect() if system_mode is 
+    // semi_automatic
+    Serial.begin(115200); // debugging purposes
+    sd.begin(chipSelect, SPI_FULL_SPEED); // init at full speed for best performance
+    fileName = "testFile" + String(fileTracker) + ".txt";
+    
+    // Test: Open a file. 
+    flag = testFile.open(fileName, O_RDWR | O_CREAT | O_AT_END);
+    if (!flag) {
+        Serial.println("SETUP(): " + fileName + " O_RDWR | 0_CREAT | O_AT_END failed");
+        digitalWrite(D7, HIGH);
+    }
+    
+    if (flag) {
+        Serial.println("SETUP(): " + fileName + " opened successfully.");
+        digitalWrite(D7, LOW);
+    }
 
+    // Test: Close a file.
+    flag = testFile.close();
+    if (!flag) {
+        Serial.println("SETUP(): " + fileName + " failed to close.");
+        digitalWrite(D7, HIGH);
+    }
+    
+    if (flag) {
+        Serial.println("SETUP(): " + fileName + " closed successfully.");
+        digitalWrite(D7, LOW);
+    }
+    
+    WriteTimer.start();
+    FileSizeTimer.start();
+}
+
+void loop() { 
+
+} 
