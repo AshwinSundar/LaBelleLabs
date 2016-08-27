@@ -1,3 +1,5 @@
+#include <math.h>
+
 // This #include statement was automatically added by the Particle IDE.
 #include "SdFat/SdFat.h"
 
@@ -6,13 +8,12 @@
 //// //// //// //// ////
 // Title of File: PhotonDataDump.ino
 // Name of Editor: Ashwin Sundar
-// Date of GitHub commit: August 23, 2016
+// Date of GitHub commit: August 26, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: I asked Bill to reimport SdFat, and he said the Particle IDE should rescan
-// GitHub automatically soon and it will update. While I'm waiting for that to happen,
-// I'm going to run a pair of SD performance tests. 
-// Test 1 (current): I will write "bulk" data every 100ms and observe the time to write over a course of 3 hours. 
-// Test 2: Add file partioning. 
+// on GitHub?: Commented out Particle.connect() for Human Testing 2. Wasn't able to get the
+// wireless router hooked up in ECB in time, so I decided to just nix WiFi connectivity
+// altogether for the test since we're not using it anyway. I also added the voltage divider
+// schematic for the temperature sensor here. 
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -42,6 +43,18 @@
 // 3V3         -    VCC
 // D2          -    DI
 // D1          -    CS
+//// //// //// //// ////
+//// //// //// //// ////
+// Particle Photon connections to voltage divider
+// 3.3V <-> thermistor <-> A5
+//              ^          ^  
+//              |----------|
+//              v
+//         10k resistor
+//              ^
+//              |
+//              v
+//             GND
 //// //// //// //// ////
 //// //// //// //// ////
 //// //// //// //// ////
@@ -80,15 +93,32 @@ SYSTEM_MODE(SEMI_AUTOMATIC); // allows Photon code to execute without being conn
 // Particle.connect() is automatically called before any code is executed, and the 
 // device waits to be connected to WiFi before executing any of your code. 
 
-FatFile testFile; 
+FatFile testFile;
+FatFile globalTempFile;
+FatFile globalEKGFile;
+FatFile globalAccelFile;
 String mockData = "gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish ";
 String fileName;
+String globalTempFileName;
+String globalEKGFileName;
+String globalAccelFileName;
+String EKGData; 
+String accelData; 
 int cardDetect = D6; // determines if a card is inserted or not. Doesn't work reliably. 
+int EKG = 0;
 bool flag; // flag checks whether certain events were successful or not
+double accelMagnitude; 
 double start;
 double stop;
+double thermistorAnalog;
+double temperature; 
+double R1 = 10000; // 10k ohm resistor. measure true resistance with multimeter and change as needed. 
+double thermistorResistance;
 int currentFileSize; 
 int fileTracker = 1; 
+int globalTempFileTracker = 1; 
+int globalEKGFileTracker = 1;
+int globalAccelFileTracker = 1;
 
 void checkCloud() {
     Serial.print(millis()/1000); // prints time
@@ -98,19 +128,131 @@ void checkCloud() {
    
 }
 
+// int checkFileSize(int fileTracker) {
+//     Serial.print("File Size: ");
+//     currentFileSize = (testFile.fileSize());
+//     Serial.println(currentFileSize);
+    
+//     if (testFile.fileSize() > 1000000) // 1 MB
+//     {
+//         return fileTracker++; // move to the next file
+//     }
+    
+//     else {
+//         return fileTracker; 
+//     }
+// }
+
+void checkAccel() {
+    globalAccelFileName = "globalAccel" + String(globalAccelFileTracker) + ".txt";
+    globalAccelFile.open(globalAccelFileName, O_RDWR | O_CREAT | O_AT_END);
+    
+    accelMagnitude = floor(sqrt(pow(analogRead(A0),2) + pow(analogRead(A1),2) + pow(analogRead(A2),2)) + 0.5); 
+    accelData += String(accelMagnitude).remove(4); 
+    accelData += "\n"; // each data point is on its own line
+    
+    // maximum String length is 622 bytes. Let's just be safe and say 616. 
+    if (accelData.length() > 616) {
+        globalAccelFile.write(accelData + Time.timeStr() + ";\n");
+        accelData = "";
+    }
+    
+    if (globalAccelFile.fileSize() > 1000000) // if the accel file exceeds 1MB, on to the next one
+    {
+        globalAccelFileTracker++;
+    }
+    
+    globalAccelFile.close();
+}
+
+
+void checkEKG() {
+    globalEKGFileName = "globalEKG" + String(globalEKGFileTracker) + ".txt";
+    globalEKGFile.open(globalEKGFileName, O_RDWR | O_CREAT | O_AT_END);
+    
+    // not printing error messages here - sample rate of 200Hz will flood the serial monitor
+    
+    EKG = analogRead(A4);
+    EKGData += String(EKG);
+    EKGData += "\n"; // each data point is on its own line
+    
+    // maximum String length is 622 bytes. Let's just be safe and say 616. 
+    if (EKGData.length() > 616) { 
+        globalEKGFile.write(EKGData + Time.timeStr() + ";\n");
+        EKGData = "";
+    }
+    
+    if (globalEKGFile.fileSize() > 1000000) // if the EKG file exceeds 1MB, on to the next on on to the next on
+    {
+        globalEKGFileTracker++;   
+    }
+    
+    // once again, no error messages because I'll flood the serial monitor. Maybe implement a flashing LED? 
+    globalEKGFile.close();
+}
+
+void checkForErrors() {
+    sd.errorPrint();
+}
+
+void checkTemp() {
+    globalTempFileName = "globalTemp" + String(globalTempFileTracker) + ".txt";
+    flag = globalTempFile.open(globalTempFileName, O_RDWR | O_CREAT | O_AT_END); 
+    
+    if (flag == 0) { 
+        Serial.println("CHECKTEMP(): " + globalTempFileName + " O_RDWR | O_CREAT | O_AT_END failed.");
+    }
+    
+    if (flag == 1) { 
+        Serial.println("CHECKTEMP(): " + globalTempFileName + " opened successfully.");
+    }
+    
+    thermistorAnalog = analogRead(A5); // read the raw thermistor analog data
+    
+     // convert resistance to ohms using voltage divider equation, where R1 = 10k ohms
+     // shielded equation from divide by 0 by putting it inside an if statement
+    if (thermistorAnalog < 4095) { 
+        thermistorResistance = (R1*thermistorAnalog/4095)/(1-thermistorAnalog/4095);
+    }
+    
+    else if (thermistorAnalog >= 4095) {
+        // if A5 reads 4095, then there is a short and/or the thermistor has failed
+        thermistorResistance = 0;
+    }
+    
+    // calculated temperature by plotting a line of best fit using linear algebra and MATLAB. Error was found to be 3.7998*10^-4 Kelvins 
+    // using Igor Pro. Compressed some of the math operations to reduce floating point error. 
+    temperature = pow((.0011106 + 0.00023724*log(thermistorResistance) + 0.000000074738*pow(log(thermistorResistance), 3)), -1) - 273.15;
+    
+    globalTempFile.write(Time.timeStr() + " " + temperature + ";");
+    globalTempFile.write("thermistor Resistance: " + String(thermistorResistance) + ";\n");
+    
+    // if the file size exceeds 1MB, on to the next one
+    if (globalTempFile.fileSize() > 1000000) { 
+        globalTempFileTracker++;
+    }
+    
+    flag = globalTempFile.close();
+    if (flag == 0) {
+        Serial.println("CHECKTEMP(): " + globalTempFileName + " failed to close.");
+    }
+    
+    if (flag == 1) { 
+        Serial.println("CHECKTEMP(): " + globalTempFileName + " closed successfully.");
+    }
+}
+
 void writeBulkData() {
     
     // Test: Open a file. 
     flag = testFile.open(fileName, O_RDWR | O_CREAT | O_AT_END);
     Serial.println(flag);
     if (flag == 0) {
-        Serial.println("WRITEBULKDATA(): " + fileName + " O_RDWR | 0_CREAT | O_AT_END failed.");
-        digitalWrite(D7, HIGH);
+        Serial.println("WRITEBULKDATA(): " + fileName + " O_RDWR | O_CREAT | O_AT_END failed.");
     }
     
     if (flag == 1) {
         Serial.println("WRITEBULKDATA(): " + fileName + " opened successfully.");
-        digitalWrite(D7, LOW);
     }
     
     // SD Performance Test
@@ -125,33 +267,14 @@ void writeBulkData() {
     flag = testFile.close();
     if (flag == 0) {
         Serial.println("WRITEBULKDATA(): " + fileName + " failed to close.");
-        digitalWrite(D7, HIGH);
     }
     
     if (flag == 1) {
         Serial.println("WRITEBULKDATA(): " + fileName + " closed successfully.");
-        digitalWrite(D7, LOW);
     }
     
     // sd.errorPrint(); // these are currently private functions. waiting for Particle to rescan GitHub
     // sd.cardErrorCode();
-}
-
-bool checkFileSize() {
-    Serial.print("File Size: ");
-    currentFileSize = (testFile.fileSize());
-    Serial.println(currentFileSize);
-    
-    if (testFile.fileSize() > 1000000) // 1 MB
-    {
-        fileTracker++; // move to the next file
-        fileName = "testFile" + String(fileTracker) + ".txt";
-        return TRUE;
-    }
-    
-    else {
-        return FALSE; 
-    }
 }
 
 // doesn't really work that well. 
@@ -167,43 +290,45 @@ bool checkFileSize() {
 //         digitalWrite(D7, LOW);
 //     }
 
-Timer WiFiTimer(1000, checkCloud);
-Timer WriteTimer(100, writeBulkData);
-Timer FileSizeTimer(5000, checkFileSize);
+// Timer WiFiTimer(1000, checkCloud);
+// Timer WriteTimer(100, writeBulkData);
+Timer CheckTempTimer(5000, checkTemp); // sample temp every 5s
+Timer CheckEKGTimer(5, checkEKG); // sample EKG at 200 Hz
+Timer CheckAccelTimer(50, checkAccel); // sample accelerometer at 20 Hz
+Timer CheckForErrorsTimer(30000, checkForErrors);
 
 void setup() {
-    Particle.connect(); // must manually call Particle.connect() if system_mode is 
+    // Particle.connect(); // must manually call Particle.connect() if system_mode is 
     // semi_automatic
+    Time.zone(-7); // changes time zone. Does not adjust for DST, must manually change.
     Serial.begin(115200); // debugging purposes
     sd.begin(chipSelect, SPI_FULL_SPEED); // init at full speed for best performance
-    fileName = "testFile" + String(fileTracker) + ".txt";
+    // fileName = "testFile" + String(fileTracker) + ".txt";
     
-    // Test: Open a file. 
-    flag = testFile.open(fileName, O_RDWR | O_CREAT | O_AT_END);
-    if (!flag) {
-        Serial.println("SETUP(): " + fileName + " O_RDWR | 0_CREAT | O_AT_END failed");
-        digitalWrite(D7, HIGH);
-    }
+    // // Test: Open a file. 
+    // flag = testFile.open(fileName, O_RDWR | O_CREAT | O_AT_END);
+    // if (!flag) {
+    //     Serial.println("SETUP(): " + fileName + " O_RDWR | 0_CREAT | O_AT_END failed");
+    // }
     
-    if (flag) {
-        Serial.println("SETUP(): " + fileName + " opened successfully.");
-        digitalWrite(D7, LOW);
-    }
+    // if (flag) {
+    //     Serial.println("SETUP(): " + fileName + " opened successfully.");
+    // }
 
-    // Test: Close a file.
-    flag = testFile.close();
-    if (!flag) {
-        Serial.println("SETUP(): " + fileName + " failed to close.");
-        digitalWrite(D7, HIGH);
-    }
+    // // Test: Close a file.
+    // flag = testFile.close();
+    // if (!flag) {
+    //     Serial.println("SETUP(): " + fileName + " failed to close.");
+    // }
     
-    if (flag) {
-        Serial.println("SETUP(): " + fileName + " closed successfully.");
-        digitalWrite(D7, LOW);
-    }
+    // if (flag) {
+    //     Serial.println("SETUP(): " + fileName + " closed successfully.");
+    // }
     
-    WriteTimer.start();
-    FileSizeTimer.start();
+    CheckTempTimer.start();
+    CheckEKGTimer.start();
+    CheckAccelTimer.start();
+    CheckForErrorsTimer.start();
 }
 
 void loop() { 
