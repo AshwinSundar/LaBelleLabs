@@ -1,19 +1,19 @@
+#include <SdFat/SdFat.h> // Particle IDE is strange. To include this particular library, 
+// you have to both declare it here, as well as manually add the library to the app
+// over in the libraries link on the left sidebar. 
 #include <math.h>
-
-// This #include statement was automatically added by the Particle IDE.
-#include "SdFat/SdFat.h"
-
 //// //// //// //// ////
 // Please read - the following section MUST be completed BEFORE attempting to commit
 //// //// //// //// ////
 // Title of File: PhotonDataDump.ino
 // Name of Editor: Ashwin Sundar
-// Date of GitHub commit: August 26, 2016
+// Date of GitHub commit: September 2, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Commented out Particle.connect() for Human Testing 2. Wasn't able to get the
-// wireless router hooked up in ECB in time, so I decided to just nix WiFi connectivity
-// altogether for the test since we're not using it anyway. I also added the voltage divider
-// schematic for the temperature sensor here. 
+// on GitHub?: Known issues - thermistorResistance and temperature are misreported. I tried
+// to implement cardErrorCode and cardErrorData but ran into some issues. The source code 
+// declares cardErrorCode as a uint8_t, but uses it as a bool elsewhere. I get errors when
+// I try to use it as a bool. I need to figure out how to translate the uint8_t to a bool
+// that I can use to control some status LEDs. 
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -182,7 +182,7 @@ void checkEKG() {
         EKGData = "";
     }
     
-    if (globalEKGFile.fileSize() > 1000000) // if the EKG file exceeds 1MB, on to the next on on to the next on
+    if (globalEKGFile.fileSize() > 1000000) // if the EKG file exceeds 1MB, on to the next on on to the next one
     {
         globalEKGFileTracker++;   
     }
@@ -192,7 +192,13 @@ void checkEKG() {
 }
 
 void checkForErrors() {
-    sd.errorPrint();
+    if (sd.cardErrorCode) {
+        digitalWrite(D7, HIGH);
+    }
+    
+    else {
+        digitalWrite(D7, LOW);
+    }
 }
 
 void checkTemp() {
@@ -295,7 +301,7 @@ void writeBulkData() {
 Timer CheckTempTimer(5000, checkTemp); // sample temp every 5s
 Timer CheckEKGTimer(5, checkEKG); // sample EKG at 200 Hz
 Timer CheckAccelTimer(50, checkAccel); // sample accelerometer at 20 Hz
-Timer CheckForErrorsTimer(30000, checkForErrors);
+Timer CheckForErrorsTimer(5000, checkForErrors);
 
 void setup() {
     // Particle.connect(); // must manually call Particle.connect() if system_mode is 
@@ -303,6 +309,7 @@ void setup() {
     Time.zone(-7); // changes time zone. Does not adjust for DST, must manually change.
     Serial.begin(115200); // debugging purposes
     sd.begin(chipSelect, SPI_FULL_SPEED); // init at full speed for best performance
+    pinMode(D7, OUTPUT); // initalize D7 as an output
     // fileName = "testFile" + String(fileTracker) + ".txt";
     
     // // Test: Open a file. 
