@@ -7,13 +7,17 @@
 //// //// //// //// ////
 // Title of File: PhotonDataDump.ino
 // Name of Editor: Ashwin Sundar
-// Date of GitHub commit: September 2, 2016
+// Date of GitHub commit: September 6, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Known issues - thermistorResistance and temperature are misreported. I tried
-// to implement cardErrorCode and cardErrorData but ran into some issues. The source code 
-// declares cardErrorCode as a uint8_t, but uses it as a bool elsewhere. I get errors when
-// I try to use it as a bool. I need to figure out how to translate the uint8_t to a bool
-// that I can use to control some status LEDs. 
+// on GitHub?: Manually setting time using setTime and inputting Unix Epoch Time. This is
+// the number of seconds since 1 January 1970. I'm doing this for our special case where
+// we don't have internet access during testing in ECB. We may want to consider using this 
+// as well in actual device deployment, since the device may be powered on in the absence of 
+// an internet connection. Additionally, I made a minor modification to how data is written
+// to the card, to make it easier to plot later. Finally, I fixed the inaccurate temperature
+// data. I implemented the voltage divider equation wrong - I had it set up such that the
+// thermistor was wired to ground, not the 10k resistor. Appears to be functioning fine now -
+// readings are far more reasonable. Yet to be verified. 
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -149,12 +153,16 @@ void checkAccel() {
     
     accelMagnitude = floor(sqrt(pow(analogRead(A0),2) + pow(analogRead(A1),2) + pow(analogRead(A2),2)) + 0.5); 
     accelData += String(accelMagnitude).remove(4); 
-    accelData += "\n"; // each data point is on its own line
     
-    // maximum String length is 622 bytes. Let's just be safe and say 616. 
+        // maximum String length is 622 bytes. Let's just be safe and say 616. 
     if (accelData.length() > 616) {
-        globalAccelFile.write(accelData + Time.timeStr() + ";\n");
+        accelData += " " + Time.timeStr(); 
+        globalAccelFile.write(accelData);
         accelData = "";
+    }
+    
+    if (accelData.length() <= 616) { 
+        accelData += "\n"; // each data point is on its own line
     }
     
     if (globalAccelFile.fileSize() > 1000000) // if the accel file exceeds 1MB, on to the next one
@@ -165,6 +173,9 @@ void checkAccel() {
     globalAccelFile.close();
 }
 
+void checkCurrentTime() { 
+    Serial.println("current time: " + String(Time.now()));
+}
 
 void checkEKG() {
     globalEKGFileName = "globalEKG" + String(globalEKGFileTracker) + ".txt";
@@ -174,12 +185,17 @@ void checkEKG() {
     
     EKG = analogRead(A4);
     EKGData += String(EKG);
-    EKGData += "\n"; // each data point is on its own line
     
     // maximum String length is 622 bytes. Let's just be safe and say 616. 
-    if (EKGData.length() > 616) { 
-        globalEKGFile.write(EKGData + Time.timeStr() + ";\n");
+    if (EKGData.length() > 616) {
+        EKGData += " " + Time.timeStr(); // print the time in the next column 
+        globalEKGFile.write(EKGData);
         EKGData = "";
+    }
+    
+    // maximum String length is 622 bytes. Let's just be safe and say 616. 
+    if (EKGData.length() <= 616) { 
+        EKGData += "\n"; // each data point is on its own line
     }
     
     if (globalEKGFile.fileSize() > 1000000) // if the EKG file exceeds 1MB, on to the next on on to the next one
@@ -192,13 +208,13 @@ void checkEKG() {
 }
 
 void checkForErrors() {
-    if (sd.cardErrorCode) {
-        digitalWrite(D7, HIGH);
-    }
+    // if (sd.cardErrorCode) {
+    //     digitalWrite(D7, HIGH);
+    // }
     
-    else {
-        digitalWrite(D7, LOW);
-    }
+    // else {
+    //     digitalWrite(D7, LOW);
+    // }
 }
 
 void checkTemp() {
@@ -218,7 +234,7 @@ void checkTemp() {
      // convert resistance to ohms using voltage divider equation, where R1 = 10k ohms
      // shielded equation from divide by 0 by putting it inside an if statement
     if (thermistorAnalog < 4095) { 
-        thermistorResistance = (R1*thermistorAnalog/4095)/(1-thermistorAnalog/4095);
+        thermistorResistance = R1*(1-thermistorAnalog/4095)*(4095/thermistorAnalog);
     }
     
     else if (thermistorAnalog >= 4095) {
@@ -230,7 +246,7 @@ void checkTemp() {
     // using Igor Pro. Compressed some of the math operations to reduce floating point error. 
     temperature = pow((.0011106 + 0.00023724*log(thermistorResistance) + 0.000000074738*pow(log(thermistorResistance), 3)), -1) - 273.15;
     
-    globalTempFile.write(Time.timeStr() + " " + temperature + ";");
+    globalTempFile.write(Time.timeStr() + " " + temperature + "; ");
     globalTempFile.write("thermistor Resistance: " + String(thermistorResistance) + ";\n");
     
     // if the file size exceeds 1MB, on to the next one
@@ -302,14 +318,16 @@ Timer CheckTempTimer(5000, checkTemp); // sample temp every 5s
 Timer CheckEKGTimer(5, checkEKG); // sample EKG at 200 Hz
 Timer CheckAccelTimer(50, checkAccel); // sample accelerometer at 20 Hz
 Timer CheckForErrorsTimer(5000, checkForErrors);
+Timer CheckTimeTimer(1000, checkCurrentTime);
 
 void setup() {
     // Particle.connect(); // must manually call Particle.connect() if system_mode is 
     // semi_automatic
-    Time.zone(-7); // changes time zone. Does not adjust for DST, must manually change.
+    // Time.zone(-7); // changes time zone. Does not adjust for DST, must manually change.
     Serial.begin(115200); // debugging purposes
     sd.begin(chipSelect, SPI_FULL_SPEED); // init at full speed for best performance
     pinMode(D7, OUTPUT); // initalize D7 as an output
+    Time.setTime(1473379200); // set time to start on September 9 2016 00:00:00 GMT
     // fileName = "testFile" + String(fileTracker) + ".txt";
     
     // // Test: Open a file. 
@@ -336,6 +354,7 @@ void setup() {
     CheckEKGTimer.start();
     CheckAccelTimer.start();
     CheckForErrorsTimer.start();
+    CheckTimeTimer.start();
 }
 
 void loop() { 
