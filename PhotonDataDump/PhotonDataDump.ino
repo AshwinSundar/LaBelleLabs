@@ -7,17 +7,14 @@
 //// //// //// //// ////
 // Title of File: PhotonDataDump.ino
 // Name of Editor: Ashwin Sundar
-// Date of GitHub commit: September 6, 2016
+// Date of GitHub commit: September 14, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Manually setting time using setTime and inputting Unix Epoch Time. This is
-// the number of seconds since 1 January 1970. I'm doing this for our special case where
-// we don't have internet access during testing in ECB. We may want to consider using this 
-// as well in actual device deployment, since the device may be powered on in the absence of 
-// an internet connection. Additionally, I made a minor modification to how data is written
-// to the card, to make it easier to plot later. Finally, I fixed the inaccurate temperature
-// data. I implemented the voltage divider equation wrong - I had it set up such that the
-// thermistor was wired to ground, not the 10k resistor. Appears to be functioning fine now -
-// readings are far more reasonable. Yet to be verified. 
+// on GitHub?: Removed extraneous testing code (testFile declaration, writeBulkData() function,
+// mockData declaration, fileName declaration, cardDetect declaration, start declaration, stop
+// declaration, currentFileSize declaration, checkForErrors() function, checkSDStatus() function, 
+// checkForErrorsTimer timer, checkTimeTimer timer, checkFileSize() function, and checkCurrentTime()
+// function. 
+
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -61,6 +58,7 @@
 //             GND
 //// //// //// //// ////
 //// //// //// //// ////
+
 //// //// //// //// ////
 //// microSD config ////
 // Pick an SPI configuration.
@@ -93,32 +91,26 @@ const uint8_t chipSelect = D0;
 //// //// //// //// ////
 
 SYSTEM_MODE(SEMI_AUTOMATIC); // allows Photon code to execute without being connected
-// to a WiFi network. You must manually call Particle.connect(). In AUTOMATIC mode, 
-// Particle.connect() is automatically called before any code is executed, and the 
-// device waits to be connected to WiFi before executing any of your code. 
+// to a WiFi network. You must manually call Particle.connect() to connect to a network.
+// On the other hand, in AUTOMATIC mode, Particle.connect() is automatically called before 
+// any code is executed, and the device waits to be connected to WiFi before executing any 
+// of your code. 
 
-FatFile testFile;
 FatFile globalTempFile;
 FatFile globalEKGFile;
 FatFile globalAccelFile;
-String mockData = "gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish gibberish ";
-String fileName;
 String globalTempFileName;
 String globalEKGFileName;
 String globalAccelFileName;
 String EKGData; 
 String accelData; 
-int cardDetect = D6; // determines if a card is inserted or not. Doesn't work reliably. 
 int EKG = 0;
 bool flag; // flag checks whether certain events were successful or not
 double accelMagnitude; 
-double start;
-double stop;
 double thermistorAnalog;
 double temperature; 
 double R1 = 10000; // 10k ohm resistor. measure true resistance with multimeter and change as needed. 
 double thermistorResistance;
-int currentFileSize; 
 int fileTracker = 1; 
 int globalTempFileTracker = 1; 
 int globalEKGFileTracker = 1;
@@ -131,21 +123,6 @@ void checkCloud() {
     Serial.println(";");
    
 }
-
-// int checkFileSize(int fileTracker) {
-//     Serial.print("File Size: ");
-//     currentFileSize = (testFile.fileSize());
-//     Serial.println(currentFileSize);
-    
-//     if (testFile.fileSize() > 1000000) // 1 MB
-//     {
-//         return fileTracker++; // move to the next file
-//     }
-    
-//     else {
-//         return fileTracker; 
-//     }
-// }
 
 void checkAccel() {
     globalAccelFileName = "globalAccel" + String(globalAccelFileTracker) + ".txt";
@@ -173,10 +150,6 @@ void checkAccel() {
     globalAccelFile.close();
 }
 
-void checkCurrentTime() { 
-    Serial.println("current time: " + String(Time.now()));
-}
-
 void checkEKG() {
     globalEKGFileName = "globalEKG" + String(globalEKGFileTracker) + ".txt";
     globalEKGFile.open(globalEKGFileName, O_RDWR | O_CREAT | O_AT_END);
@@ -189,13 +162,13 @@ void checkEKG() {
     // maximum String length is 622 bytes. Let's just be safe and say 616. 
     if (EKGData.length() > 616) {
         EKGData += " " + Time.timeStr(); // print the time in the next column 
-        globalEKGFile.write(EKGData);
-        EKGData = "";
+        globalEKGFile.write(EKGData); // write the buffer to the card
+        EKGData = ""; // clear the buffer
     }
     
     // maximum String length is 622 bytes. Let's just be safe and say 616. 
     if (EKGData.length() <= 616) { 
-        EKGData += "\n"; // each data point is on its own line
+        EKGData += "\n"; // go to the next line
     }
     
     if (globalEKGFile.fileSize() > 1000000) // if the EKG file exceeds 1MB, on to the next on on to the next one
@@ -205,16 +178,6 @@ void checkEKG() {
     
     // once again, no error messages because I'll flood the serial monitor. Maybe implement a flashing LED? 
     globalEKGFile.close();
-}
-
-void checkForErrors() {
-    // if (sd.cardErrorCode) {
-    //     digitalWrite(D7, HIGH);
-    // }
-    
-    // else {
-    //     digitalWrite(D7, LOW);
-    // }
 }
 
 void checkTemp() {
@@ -239,12 +202,14 @@ void checkTemp() {
     
     else if (thermistorAnalog >= 4095) {
         // if A5 reads 4095, then there is a short and/or the thermistor has failed
-        thermistorResistance = 0;
+        thermistorResistance = 0;   
     }
     
     // calculated temperature by plotting a line of best fit using linear algebra and MATLAB. Error was found to be 3.7998*10^-4 Kelvins 
     // using Igor Pro. Compressed some of the math operations to reduce floating point error. 
     temperature = pow((.0011106 + 0.00023724*log(thermistorResistance) + 0.000000074738*pow(log(thermistorResistance), 3)), -1) - 273.15;
+    Serial.print("temp: "); // debug
+    Serial.println(temperature);
     
     globalTempFile.write(Time.timeStr() + " " + temperature + "; ");
     globalTempFile.write("thermistor Resistance: " + String(thermistorResistance) + ";\n");
@@ -264,61 +229,9 @@ void checkTemp() {
     }
 }
 
-void writeBulkData() {
-    
-    // Test: Open a file. 
-    flag = testFile.open(fileName, O_RDWR | O_CREAT | O_AT_END);
-    Serial.println(flag);
-    if (flag == 0) {
-        Serial.println("WRITEBULKDATA(): " + fileName + " O_RDWR | O_CREAT | O_AT_END failed.");
-    }
-    
-    if (flag == 1) {
-        Serial.println("WRITEBULKDATA(): " + fileName + " opened successfully.");
-    }
-    
-    // SD Performance Test
-    start = micros(); 
-    testFile.write(mockData);
-    stop = micros(); 
-    Serial.print("Write Time: ");
-    Serial.print((stop-start)/1000);
-    Serial.println(" ms");
-    
-    // Test: Close a file.
-    flag = testFile.close();
-    if (flag == 0) {
-        Serial.println("WRITEBULKDATA(): " + fileName + " failed to close.");
-    }
-    
-    if (flag == 1) {
-        Serial.println("WRITEBULKDATA(): " + fileName + " closed successfully.");
-    }
-    
-    // sd.errorPrint(); // these are currently private functions. waiting for Particle to rescan GitHub
-    // sd.cardErrorCode();
-}
-
-// doesn't really work that well. 
-// void checkSDStatus() {
-//     Serial.println(digitalRead(cardDetect));
-//     if (digitalRead(cardDetect) == 0) {
-//         Serial.println("SD disconnected. Please plug in an SD card.");
-//         digitalWrite(D7, HIGH);
-//     }
-    
-//     if (digitalRead(cardDetect) == 1) {
-//         Serial.println("SD connected.");
-//         digitalWrite(D7, LOW);
-//     }
-
-// Timer WiFiTimer(1000, checkCloud);
-// Timer WriteTimer(100, writeBulkData);
 Timer CheckTempTimer(5000, checkTemp); // sample temp every 5s
 Timer CheckEKGTimer(5, checkEKG); // sample EKG at 200 Hz
 Timer CheckAccelTimer(50, checkAccel); // sample accelerometer at 20 Hz
-Timer CheckForErrorsTimer(5000, checkForErrors);
-Timer CheckTimeTimer(1000, checkCurrentTime);
 
 void setup() {
     // Particle.connect(); // must manually call Particle.connect() if system_mode is 
@@ -328,33 +241,10 @@ void setup() {
     sd.begin(chipSelect, SPI_FULL_SPEED); // init at full speed for best performance
     pinMode(D7, OUTPUT); // initalize D7 as an output
     Time.setTime(1473379200); // set time to start on September 9 2016 00:00:00 GMT
-    // fileName = "testFile" + String(fileTracker) + ".txt";
-    
-    // // Test: Open a file. 
-    // flag = testFile.open(fileName, O_RDWR | O_CREAT | O_AT_END);
-    // if (!flag) {
-    //     Serial.println("SETUP(): " + fileName + " O_RDWR | 0_CREAT | O_AT_END failed");
-    // }
-    
-    // if (flag) {
-    //     Serial.println("SETUP(): " + fileName + " opened successfully.");
-    // }
-
-    // // Test: Close a file.
-    // flag = testFile.close();
-    // if (!flag) {
-    //     Serial.println("SETUP(): " + fileName + " failed to close.");
-    // }
-    
-    // if (flag) {
-    //     Serial.println("SETUP(): " + fileName + " closed successfully.");
-    // }
     
     CheckTempTimer.start();
     CheckEKGTimer.start();
     CheckAccelTimer.start();
-    CheckForErrorsTimer.start();
-    CheckTimeTimer.start();
 }
 
 void loop() { 
