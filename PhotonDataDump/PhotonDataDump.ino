@@ -7,14 +7,10 @@
 //// //// //// //// ////
 // Title of File: PhotonDataDump.ino
 // Name of Editor: Ashwin Sundar
-// Date of GitHub commit: September 14, 2016
+// Date of GitHub commit: September 15, 2016
 // What specific changes were made to this code, compared to the currently up-to-date code
-// on GitHub?: Removed extraneous testing code (testFile declaration, writeBulkData() function,
-// mockData declaration, fileName declaration, cardDetect declaration, start declaration, stop
-// declaration, currentFileSize declaration, checkForErrors() function, checkSDStatus() function, 
-// checkForErrorsTimer timer, checkTimeTimer timer, checkFileSize() function, and checkCurrentTime()
-// function. 
-
+// on GitHub?: Implemented checkSdError LED on D7. If cardErrorCode returns 0, the LED is off.
+// Else, the LED is on. 
 //// //// //// //// ////
 // Best coding practices
 // 1) When you create a new variable or function, make it obvious what the variable or
@@ -116,14 +112,6 @@ int globalTempFileTracker = 1;
 int globalEKGFileTracker = 1;
 int globalAccelFileTracker = 1;
 
-void checkCloud() {
-    Serial.print(millis()/1000); // prints time
-    Serial.print(" ");
-    Serial.print(Particle.connected()); // if Photon is connected to Cloud, returns 1. 
-    Serial.println(";");
-   
-}
-
 void checkAccel() {
     globalAccelFileName = "globalAccel" + String(globalAccelFileTracker) + ".txt";
     globalAccelFile.open(globalAccelFileName, O_RDWR | O_CREAT | O_AT_END);
@@ -148,6 +136,14 @@ void checkAccel() {
     }
     
     globalAccelFile.close();
+}
+
+void checkCloud() {
+    Serial.print(millis()/1000); // prints time
+    Serial.print(" ");
+    Serial.print(Particle.connected()); // if Photon is connected to Cloud, returns 1. 
+    Serial.println(";");
+   
 }
 
 void checkEKG() {
@@ -179,6 +175,22 @@ void checkEKG() {
     // once again, no error messages because I'll flood the serial monitor. Maybe implement a flashing LED? 
     globalEKGFile.close();
 }
+
+void checkSdError() { 
+    Serial.print("sd.cardErrorCode(): "); 
+    flag = sd.cardErrorCode(); // directly related to sd success/failure
+    Serial.println(flag);
+    Serial.print("sd.cardErrorData(): "); // for additional debugging
+    Serial.println(sd.cardErrorData());
+    
+    if (!flag) {
+        digitalWrite(D7, LOW);
+    }
+    
+    else {
+        digitalWrite(D7, HIGH);
+    }
+} 
 
 void checkTemp() {
     globalTempFileName = "globalTemp" + String(globalTempFileTracker) + ".txt";
@@ -232,6 +244,7 @@ void checkTemp() {
 Timer CheckTempTimer(5000, checkTemp); // sample temp every 5s
 Timer CheckEKGTimer(5, checkEKG); // sample EKG at 200 Hz
 Timer CheckAccelTimer(50, checkAccel); // sample accelerometer at 20 Hz
+Timer CheckSdErrorTimer(1000, checkSdError); // checks for SD card errors every 1 second
 
 void setup() {
     // Particle.connect(); // must manually call Particle.connect() if system_mode is 
@@ -239,12 +252,13 @@ void setup() {
     // Time.zone(-7); // changes time zone. Does not adjust for DST, must manually change.
     Serial.begin(115200); // debugging purposes
     sd.begin(chipSelect, SPI_FULL_SPEED); // init at full speed for best performance
-    pinMode(D7, OUTPUT); // initalize D7 as an output
+    pinMode(D7, OUTPUT); // initalize D7 as an output for use by checkSdError
     Time.setTime(1473379200); // set time to start on September 9 2016 00:00:00 GMT
     
     CheckTempTimer.start();
     CheckEKGTimer.start();
     CheckAccelTimer.start();
+    CheckSdErrorTimer.start();
 }
 
 void loop() { 
